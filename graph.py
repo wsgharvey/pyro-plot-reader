@@ -9,6 +9,8 @@ import matplotlib
 matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 
+from PIL import Image
+
 from helpers import fig2tensor,\
                     set_size_pixels
 
@@ -33,6 +35,7 @@ def graph():
     # get the graph as a matrix
     fig = set_size_pixels(fig, (width, height))
     image = Variable(fig2tensor(fig))
+    print(image)
 
     # observe the graph with some Gaussian noise
     noise_std = Variable(torch.ones(image.size()))
@@ -40,7 +43,20 @@ def graph():
                                  dist.normal,
                                  image,
                                  noise_std)
-    return bar_height
+    return bar_height, image
 
 
-print(graph())
+# make data:
+real_height, real_img = graph()
+
+# condition on the data
+conditioned_graph = pyro.condition(
+                        graph,
+                        data={"observed_image": real_img})
+
+# run inference
+posterior = pyro.infer.Importance(conditioned_graph, num_samples=100)
+marginal = pyro.infer.Marginal(posterior)
+
+# sample from empirical posterior
+print("graph is:\n", marginal())
