@@ -35,6 +35,7 @@ def graph(return_image=False):
     # get the graph as a matrix
     fig = set_size_pixels(fig, (width, height))
     image = Variable(fig2tensor(fig))
+    plt.close()
 
     # observe the graph with some Gaussian noise
     noise_std = Variable(torch.ones(image.size()))
@@ -51,7 +52,6 @@ def graph(return_image=False):
 
 # make data:
 real_height, real_img = graph(return_image=True)
-
 print("true height is", real_height)
 
 # condition on the data
@@ -60,7 +60,7 @@ conditioned_graph = pyro.condition(
                         data={"observed_image": real_img.view(-1)})
 
 # run inference
-posterior = pyro.infer.Importance(conditioned_graph, num_samples=5)
+posterior = pyro.infer.Importance(conditioned_graph, num_samples=15)
 marginal = pyro.infer.Marginal(posterior)
 
 # sample from empirical posterior
