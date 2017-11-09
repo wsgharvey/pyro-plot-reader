@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 
 from PIL import Image
 
+import numpy as np
+
 from helpers import fig2tensor,\
                     set_size_pixels
 from nn import BarHeightNet
@@ -22,7 +24,9 @@ class PlotReader(nn.Module):
         super(PlotReader, self).__init__()
         self.bar_height_net = BarHeightNet()
 
-    def model(self, observed_image, return_image=True):
+    def model(self, observed_image,
+              return_image=False,
+              save_address=None):
         """ generates a bar chart with a single bar
         """
         max_height = 10
@@ -42,6 +46,8 @@ class PlotReader(nn.Module):
 
         # get the graph as a matrix
         fig = set_size_pixels(fig, (width, height))
+        if save_address is not None:
+            fig.savefig(save_address)
         image = Variable(fig2tensor(fig))
         plt.close()
 
