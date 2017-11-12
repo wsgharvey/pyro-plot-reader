@@ -22,6 +22,10 @@ class BarHeightNet(nn.Module):
         x = self.pool(x)
         x = F.relu(self.conv(x))
         x = x.view(-1, 1600)
-        x = self.fcn1(x)
+        x = F.relu(self.fcn1(x))
         x = self.fcn2(x)
+        sig = nn.Sigmoid()
+        x = 10 * sig(x)
+        x = x.view(-1)
+        print("mean height predicted as", x.data.numpy()[0])
         return x

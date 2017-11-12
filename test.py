@@ -46,13 +46,17 @@ svi = pyro.infer.SVI(plot_reader.model,
                      pyro.optim.Adam({"lr": 0.0001}),
                      loss="ELBO")
 
-for i, (images, true_heights) in enumerate(data_generator(num_batches=10)):
-    print("loss is", svi.step(images))
+images, true_heights = next(data_generator())
+image, true_height = images[0], true_heights[0]
+print("height should be", true_height)
+while True:
+    print("loss is", svi.step(image))
+    print("\n")
 
 
 # for _, (x, _) in enumerate(train_loader):
-#     # wrap the mini-batch in a PyTorch Variable
+#     wrap the mini-batch in a PyTorch Variable
 #     x = Variable(x)
 #     # do ELBO gradient and accumulate loss
 #     epoch_loss += svi.step(x)
-# print(epoch_loss)
+#     print(epoch_loss)
