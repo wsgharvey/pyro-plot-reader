@@ -52,11 +52,3 @@ print("height should be", true_height)
 while True:
     print("loss is", svi.step(image))
     print("\n")
-
-
-# for _, (x, _) in enumerate(train_loader):
-#     wrap the mini-batch in a PyTorch Variable
-#     x = Variable(x)
-#     # do ELBO gradient and accumulate loss
-#     epoch_loss += svi.step(x)
-#     print(epoch_loss)

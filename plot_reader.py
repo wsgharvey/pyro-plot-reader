@@ -25,7 +25,8 @@ class PlotReader(nn.Module):
         self.height = 200
         self.width = 200
         self.bar_height_net = BarHeightNet()
-        self.abc_projection = Variable(torch.randn(50,
+        self.abc_dist_size = 50
+        self.abc_projection = Variable(torch.randn(self.abc_dist_size,
                                                    3*self.height*self.width)) / 1000
 
     def model(self, observed_image,
@@ -66,7 +67,6 @@ class PlotReader(nn.Module):
                                           observed_image,
                                           generated_image,
                                           noise_std)
-
         # must return values in a structure that allows equality comparison
         # when running inference
         if return_image:
@@ -82,30 +82,3 @@ class PlotReader(nn.Module):
                                  mean_height,
                                  Variable(torch.ones(mean_height.size())))
         print("height sampled as", bar_height.data.numpy()[0])
-
-# # make data:
-# real_height, real_img = graph(return_image=True)
-# print("true height is", real_height)
-#
-# # condition on the data
-# conditioned_graph = pyro.condition(
-#                         graph,
-#                         data={"observed_image": real_img.view(-1)})
-#
-# # optimise guide parameters
-# svi = pyro.infer.SVI(model=conditioned_graph,
-#                      guide=bar_height_guide,
-#                      optim=pyro.optim.SGD({"lr": 0.1}),
-#                      loss="ELBO")
-# for i in range(100):
-#     print("\n\nPARAMS after {}:".format(i), list(pyro.get_param_store().named_parameters()))
-#     svi.step()
-#
-# # run inference
-# posterior = pyro.infer.Importance(conditioned_graph,
-#                                   guide=bar_height_guide,
-#                                   num_samples=10)
-# marginal = pyro.infer.Marginal(posterior)
-#
-# # sample from empirical posterior
-# print("estimated height is:\n", marginal())
