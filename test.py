@@ -41,14 +41,21 @@ def data_generator(num_batches=-1, batch_size=8, use_cuda=False):
         yield images, true_heights
 
 
-svi = pyro.infer.SVI(plot_reader.model,
+svi = pyro.infer.SVI(plot_reader.test_model,
                      plot_reader.guide,
-                     pyro.optim.Adam({"lr": 0.0001}),
-                     loss="ELBO")
+                     pyro.optim.Adam({"lr": 0.01}),
+                     loss="ELBO",
+                     num_particles=5)
 
-images, true_heights = next(data_generator())
-image, true_height = images[0], true_heights[0]
-print("height should be", true_height)
+# images, true_heights = next(data_generator())
+# image, true_height = images[0], true_heights[0]
+# print("height should be", true_height)
+#
+# from PIL import Image
+# img = Image.fromarray(image.data.numpy().astype(np.uint8), 'RGB')
+# img.show()
+
+
 while True:
-    print("loss is", svi.step(image))
+    print("loss is", svi.step())
     print("\n")
