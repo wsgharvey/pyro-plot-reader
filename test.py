@@ -14,9 +14,13 @@ import numpy as np
 
 from PIL import Image
 
+torch.manual_seed(0)
 
 plot_reader = PlotReader()
 
 csis = infer.CSIS(model=plot_reader.model,
                   optim=torch.optim.Adam)
-csis.compile(n_steps=10)
+csis.compile(num_steps=1000,
+             num_particles=8)
+
+# posterior = csis.get_posterior(num_samples=4)
