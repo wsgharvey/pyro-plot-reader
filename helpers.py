@@ -12,6 +12,7 @@ def fig2tensor(fig):
     flat_array = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
     width, height = fig.canvas.get_width_height()
     img = flat_array.reshape((height, width, 3))
+    img = img.transpose((2, 0, 1))  # put layer in the first dimension
     img = torch.from_numpy(img).type(torch.FloatTensor)
 
     return img
