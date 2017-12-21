@@ -99,3 +99,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# Generated data files
+data/*/test_predictions.csv
+data/*/test/*
+data/*/train/*
+data/*/validation/*

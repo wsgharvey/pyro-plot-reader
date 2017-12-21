@@ -1,15 +1,6 @@
-#
-# import torch
-# from torch.autograd import Variable
-# import torchvision.datasets as dset
-# import torchvision.transforms as transforms
-#
-# import pyro
-# import pyro.infer as infer
-# import pyro.distributions as dist
+from pyro.infer.csis.util import sample_from_prior
 
-from pyro.infer.csis.prior import sample_from_prior
-
+from file_paths import DATASET_PATH
 from model import model
 
 from PIL import Image
@@ -23,7 +14,7 @@ def create_dataset(file_path,
     for i in range(n_data):
         trace = sample_from_prior(model)
         targets.append(trace.nodes["bar_height"]["value"].data.numpy()[0])
-        img = trace.nodes["_RETURN"]["value"]
+        img = trace.nodes["_RETURN"]["value"]["image"]
         img = img.view(3, 200, 200)
         img = img.data.numpy()
 
@@ -39,6 +30,7 @@ def create_dataset(file_path,
         f.write("\n".join(map(str, targets)))
 
 
-create_dataset("../data/bar-1d/train", 1000)
-create_dataset("../data/bar-1d/validation", 100)
-create_dataset("../data/bar-1d/test", 100)
+open(x, "{}/README.md".format(DATASET_PATH)).close()
+create_dataset("{}/train".format(DATASET_PATH), 1000)
+create_dataset("{}/validation".format(DATASET_PATH), 100)
+create_dataset("{}/test".format(DATASET_PATH), 100)

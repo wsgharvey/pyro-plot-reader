@@ -22,7 +22,7 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
                              dist.uniform,
                              Variable(torch.Tensor([0])),
                              Variable(torch.Tensor([max_height])))
-    print("bar height should be:", bar_height.data.numpy()[0])
+
     fig, ax = plt.subplots()
     ax.bar([1],
            bar_height.data,
@@ -36,10 +36,12 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
 
     flattened_image = image.view(-1)
     noise_std = Variable(10*torch.ones(flattened_image.size()))
+    flattened_obs_image = observed_image.view(-1)
     observed_image = pyro.observe("observed_image",
                                   dist.normal,
-                                  obs=observed_image,
+                                  obs=flattened_obs_image,
                                   mu=flattened_image,
                                   sigma=noise_std)
 
-    return image
+    return {"image": image,
+            "bar_height": bar_height}
