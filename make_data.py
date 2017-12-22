@@ -13,8 +13,11 @@ def create_dataset(file_path,
 
     for i in range(n_data):
         trace = sample_from_prior(model)
-        targets.append(trace.nodes["bar_height"]["value"].data.numpy()[0])
-        img = trace.nodes["_RETURN"]["value"]["image"]
+        returned = trace.nodes["_RETURN"]["value"]
+
+        targets.append(",".join(map(str, returned["bar_heights"])))
+
+        img = returned["image"]
         img = img.view(3, 200, 200)
         img = img.data.numpy()
 
@@ -27,10 +30,10 @@ def create_dataset(file_path,
         img.save(file_path + "/graph_{}.png".format(i))
 
     with open(file_path + "/targets.csv", 'w') as f:
-        f.write("\n".join(map(str, targets)))
+        f.write("\n".join(targets))
 
 
-open(x, "{}/README.md".format(DATASET_PATH)).close()
+# open(x, "{}/README.md".format(DATASET_PATH)).close()
 create_dataset("{}/train".format(DATASET_PATH), 1000)
 create_dataset("{}/validation".format(DATASET_PATH), 100)
 create_dataset("{}/test".format(DATASET_PATH), 100)

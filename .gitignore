@@ -105,3 +105,6 @@ data/*/test_predictions.csv
 data/*/test/*
 data/*/train/*
 data/*/validation/*
+
+# Artifacts
+artifacts/*

@@ -18,14 +18,19 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
     max_height = 10
     height, width = 200, 200
 
-    bar_height = pyro.sample("bar_height",
-                             dist.uniform,
-                             Variable(torch.Tensor([0])),
-                             Variable(torch.Tensor([max_height])))
+    num_bars = 3
+
+    bar_heights = []
+    for bar_num in range(3):
+        bar_height = pyro.sample("bar_height_{}".format(bar_num),
+                                 dist.uniform,
+                                 Variable(torch.Tensor([0])),
+                                 Variable(torch.Tensor([max_height])))
+        bar_heights.append(bar_height.data.numpy()[0])
 
     fig, ax = plt.subplots()
-    ax.bar([1],
-           bar_height.data,
+    ax.bar(range(num_bars),
+           bar_heights,
            label="Bar")
     ax.set_ylim(0, max_height)
 
@@ -44,4 +49,4 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
                                   sigma=noise_std)
 
     return {"image": image,
-            "bar_height": bar_height}
+            "bar_heights": bar_heights}
