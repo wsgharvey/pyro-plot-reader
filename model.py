@@ -28,6 +28,8 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
                                  Variable(torch.Tensor([max_height])))
         bar_heights.append(bar_height.data.numpy()[0])
 
+    print("truth:    ", bar_heights)
+
     fig, ax = plt.subplots()
     ax.bar(range(num_bars),
            bar_heights,

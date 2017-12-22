@@ -37,9 +37,12 @@ class Guide(nn.Module):
         x = self.conv6(x)
 
         x = x.view(-1, 320)
+        x = self.fcn(x)
 
         means = x.view(-1)
         std = self.log_std.exp()
+
+        print("predicted:", means.data.numpy())
 
         for bar_num in range(3):
             pyro.sample("bar_height_{}".format(bar_num),
