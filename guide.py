@@ -16,7 +16,7 @@ class Guide(nn.Module):
         self.pool = nn.AvgPool2d(10, stride=10)
         self.conv1 = nn.Conv2d(3, 3, 3)
         self.conv2 = nn.Conv2d(3, 1, 3)
-        self.fcn1 = nn.Linear(256, 1)
+        self.fcn = nn.Linear(256, 1)
 
         self.log_std = nn.Parameter(torch.Tensor([1]))
 
@@ -29,7 +29,6 @@ class Guide(nn.Module):
         x = self.conv2(x)
 
         x = x.view(-1, 256)
-        x = self.fcn1(x)
 
         mean = x.view(-1)
         std = self.log_std.exp()

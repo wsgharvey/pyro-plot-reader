@@ -30,6 +30,7 @@ def expected_val(weighted_traces, attribute):
         att_sum += ret * weight
     return att_sum/weight_sum
 
+
 guide = Guide()
 guide.load_state_dict(torch.load(ARTIFACT_PATH))
 
