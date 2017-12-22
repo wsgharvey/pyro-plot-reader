@@ -15,4 +15,4 @@ with open("{}/test/targets.csv".format(DATASET_PATH)) as targets,\
 
 rmse = (sse/n)**0.5
 
-print("rmse:", rmse)
+print("Root Mean Squared Error:", rmse)
