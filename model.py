@@ -5,6 +5,8 @@ import pyro.distributions as dist
 import torch
 from torch.autograd import Variable
 
+import numpy as np
+
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -28,8 +30,6 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
                                  Variable(torch.Tensor([max_height])))
         bar_heights.append(bar_height.data.numpy()[0])
 
-    print("truth:    ", bar_heights)
-
     fig, ax = plt.subplots()
     ax.bar(range(num_bars),
            bar_heights,
@@ -49,6 +49,5 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
                                   obs=flattened_obs_image,
                                   mu=flattened_image,
                                   sigma=noise_std)
-
     return {"image": image,
-            "bar_heights": bar_heights}
+            "bar_heights": np.array(bar_heights)}

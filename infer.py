@@ -25,7 +25,7 @@ def expected_val(weighted_traces, attribute):
     max_log_weight = max(float(log_weight.data.numpy()[0]) for _, log_weight in weighted_traces)
     for trace, log_weight in weighted_traces:
         ret = trace.nodes["_RETURN"]["value"][attribute]
-        weight = (log_weight-max_log_weight).exp()
+        weight = (log_weight-max_log_weight).exp().data.numpy()[0]
         weight_sum += weight
         att_sum += ret * weight
     return att_sum/weight_sum
@@ -49,7 +49,7 @@ for img_no in range(100):
 
     marg = marginal.trace_dist._traces(observed_image=image)
 
-    predictions.append(expected_val(marg, "bar_height").data.numpy()[0])
+    predictions.append(expected_val(marg, "bar_heights"))
 
     with open("{}/test_predictions.csv".format(DATASET_PATH), 'w') as f:
-        f.write("\n".join(map(str, predictions)))
+        f.write("\n".join((map(lambda x: ",".join(map(str, x)), predictions))))

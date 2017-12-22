@@ -42,8 +42,6 @@ class Guide(nn.Module):
         means = x.view(-1)
         std = self.log_std.exp()
 
-        print("predicted:", means.data.numpy())
-
         for bar_num in range(3):
             pyro.sample("bar_height_{}".format(bar_num),
                         dist.normal,
