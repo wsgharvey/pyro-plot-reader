@@ -33,7 +33,7 @@ def create_dataset(file_path,
         f.write("\n".join(targets))
 
 
-# open(x, "{}/README.md".format(DATASET_PATH)).close()
+open(x, "{}/README.md".format(DATASET_PATH)).close()
 create_dataset("{}/train".format(DATASET_PATH), 1000)
 create_dataset("{}/validation".format(DATASET_PATH), 100)
 create_dataset("{}/test".format(DATASET_PATH), 100)

@@ -36,8 +36,8 @@ guide.load_state_dict(torch.load(ARTIFACT_PATH))
 
 csis = infer.CSIS(model=model,
                   guide=guide,
-                  num_samples=20)
-
+                  num_samples=10)
+csis.set_model_args()
 marginal = infer.Marginal(csis)
 
 predictions = []
@@ -51,5 +51,5 @@ for img_no in range(100):
 
     predictions.append(expected_val(marg, "bar_heights"))
 
-    with open("{}/test_predictions.csv".format(DATASET_PATH), 'w') as f:
-        f.write("\n".join((map(lambda x: ",".join(map(str, x)), predictions))))
+with open("{}/test_predictions.csv".format(DATASET_PATH), 'w') as f:
+    f.write("\n".join((map(lambda x: ",".join(map(str, x)), predictions))))

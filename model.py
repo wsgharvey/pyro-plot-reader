@@ -42,7 +42,7 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
     plt.close()
 
     flattened_image = image.view(-1)
-    noise_std = Variable(10*torch.ones(flattened_image.size()))
+    noise_std = Variable(torch.ones(flattened_image.size()))
     flattened_obs_image = observed_image.view(-1)
     observed_image = pyro.observe("observed_image",
                                   dist.normal,
