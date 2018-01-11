@@ -24,6 +24,6 @@ csis = CSIS(model=model,
 csis.set_model_args()
 csis.set_compiler_args(num_particles=8)
 
-csis.compile(optim, num_steps=1000)
+csis.compile(optim, num_steps=20)
 
 torch.save(guide.state_dict(), ARTIFACT_PATH)

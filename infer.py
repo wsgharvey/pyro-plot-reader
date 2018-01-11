@@ -36,7 +36,7 @@ guide.load_state_dict(torch.load(ARTIFACT_PATH))
 
 csis = infer.CSIS(model=model,
                   guide=guide,
-                  num_samples=10)
+                  num_samples=1)
 csis.set_model_args()
 marginal = infer.Marginal(csis)
 

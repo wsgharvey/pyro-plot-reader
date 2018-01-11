@@ -69,7 +69,6 @@ class FocusBox(nn.Module):
         x = x.view(1, 20*23)
         x = F.relu(self.fcn1(x))
         x = self.fcn2(x)
-
         return x.view(1)
 
 
@@ -78,8 +77,12 @@ class Guide(nn.Module):
         super(Guide, self).__init__()
         # for calculating attention weights
         self.pool = nn.AvgPool2d(10, stride=10)
-        self.attention_boxes = [AttentionBox() for _ in range(3)]
-        self.focus_boxes = [FocusBox() for _ in range(10)]
+        # self.attention_boxes = [AttentionBox() for _ in range(3)]   # todo with this innit
+        # self.focus_boxes = [FocusBox() for _ in range(10)]
+        for i in range(3):
+            exec("self.attention_box_{} = AttentionBox()".format(i))
+        for i in range(10):
+            exec("self.focus_box_{} = FocusBox()".format(i))
 
         self.full_conv1 = nn.Conv2d(3, 20, 3, padding=1)
         self.full_conv2 = nn.Conv2d(20, 40, 3, padding=1)
@@ -90,6 +93,7 @@ class Guide(nn.Module):
 
     def forward(self, observed_image=None):
         assert observed_image is not None
+        observed_image = F.relu(torch.floor(observed_image - F.relu(observed_image-255)))    # simulate getting turned into a png and back
         img = observed_image.view(1, 3, 200, 200)
         low_res_img = self.pool(img)
 
@@ -98,37 +102,21 @@ class Guide(nn.Module):
         img_emb = F.relu(self.full_conv3(img_emb))
         img_emb = self.full_conv4(img_emb)
 
-        predictions = []
+        std = self.log_std.exp()
+
+        predictions = Variable(torch.Tensor(10, 1))
         for i in range(10):
             start, end = i*20, (i+1)*20
             img_slice = img_emb[:, :, :, start:end]
             img_slice.contiguous()
-            slice_pred = self.focus_boxes[i](img_slice)
-            predictions.append(slice_pred)
-
-        # create 'image' of coordinate values
-        # loc_emb = Variable(torch.Tensor(np.array([[[i for i in np.arange(25.)] for j in np.arange(25.)], [[j for i in np.arange(25.)] for j in np.arange(25.)]])))
-        # loc_emb = loc_emb.view(1, 2, 25, 25)
-
-        # loc_emb = F.relu(self.loc1(loc_emb))
-        # loc_emb = F.relu(self.loc2(loc_emb))
-        # loc_emb = self.loc3(loc_emb)
-
-        # full_emb = torch.cat((img_emb, loc_emb), 1)
-
-        # full_emb = F.relu(self.joint1(full_emb))
-        # full_emb = F.relu(self.joint2(full_emb))
-        # full_emb = self.joint3(full_emb)
-        # full_emb = full_emb.view(-1)
-        # this will be multiplied with multiple sets of weights so be careful "the troubles" don't happen again
-
-        std = self.log_std.exp()
+            exec("global slice_pred; slice_pred = self.focus_box_{}(img_slice)".format(i))
+            predictions[i] = slice_pred
 
         for bar_num in range(3):
-            attention_weights = self.attention_boxes[bar_num](low_res_img)
-            attention_weights = attention_weights.view(-1)
+            exec("global attention_weights; attention_weights = self.attention_box_{}(low_res_img)".format(bar_num))
             # now dot the weights with the embedding
-            mean = sum(w*x for w, x in zip(attention_weights, predictions))
+            # the troubles are happening
+            mean = sum(w*x for w, x in zip(attention_weights.view(-1), predictions))
             print(mean.data.numpy()[0])
             pyro.sample("bar_height_{}".format(bar_num),
                         dist.normal,
