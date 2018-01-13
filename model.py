@@ -7,11 +7,12 @@ from torch.autograd import Variable
 
 import numpy as np
 
-import matplotlib
-import matplotlib.pyplot as plt
-
 from helpers import fig2tensor,\
                     set_size_pixels
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
 def model(observed_image=Variable(torch.zeros(200, 200))):
