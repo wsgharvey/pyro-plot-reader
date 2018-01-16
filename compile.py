@@ -16,7 +16,7 @@ torch.manual_seed(4)
 guide = Guide()
 # guide.load_state_dict(torch.load(ARTIFACT_PATH))
 
-optim = torch.optim.Adam(guide.parameters(), lr=1e-3)
+optim = torch.optim.Adam(guide.parameters(), lr=1e-6)
 
 csis = CSIS(model=model,
             guide=guide,

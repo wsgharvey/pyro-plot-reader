@@ -6,6 +6,7 @@ from torch.autograd import Variable
 import pyro
 import pyro.infer
 import pyro.distributions as dist
+import pyro.infer.csis.proposal_dists as proposal_dists
 
 import numpy as np
 
@@ -150,14 +151,17 @@ class Guide(nn.Module):
         img = observed_image.view(1, 3, 200, 200)
 
         encoding = self.encoder(img)
-        bar_heights = self.decoder(encoding.view(51200)).view(3)
+        bar_heights = nn.Sigmoid()(self.decoder(encoding.view(51200)))*10
         std = self.log_std.exp()
+        print("BBBBBBBAAAAAAARRRRRRRRRR HEIGHTSSSSSSSSSSSS:", bar_heights)
 
         for bar_num in range(3):
             mean = bar_heights[bar_num]
             print(mean.data.numpy()[0])
             pyro.sample("bar_height_{}".format(bar_num),
-                        dist.normal,
+                        proposal_dists.uniform_proposal,
+                        Variable(torch.Tensor([0])),
+                        Variable(torch.Tensor([10])),
                         mean,
                         std)
 
