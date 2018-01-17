@@ -10,9 +10,6 @@ import pyro.infer.csis.proposal_dists as proposal_dists
 
 import numpy as np
 
-global d_model
-d_model = 512
-
 
 def createLocationEmbedding(x, y):
     emb = [np.sin(x/(10000**(2*i/256))) for i in range(256)] + \
@@ -34,7 +31,7 @@ class DotProductAttention(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, h=4, d_k=128, d_v=256):
+    def __init__(self, h=1, d_k=128, d_v=256, d_model=512):
         """
         :h: number of heads
         """
@@ -97,9 +94,9 @@ class LocalEmbedder(nn.Module):
 
 
 class EncoderLayer(nn.Module):
-    def __init__(self, dff=2048):
+    def __init__(self, d_model=512, dff=2048):
         super(EncoderLayer, self).__init__()
-        self.attention = MultiHeadAttention()
+        self.attention = MultiHeadAttention(h=1)
         self.fcn1 = nn.Linear(d_model, dff)
         self.fcn2 = nn.Linear(dff, d_model)
 
@@ -135,6 +132,18 @@ class Encoder(nn.Module):
             x = layer(x)
 
         return x
+
+
+class Decoder(nn.Module):
+    def __init__(self):
+        super(Decoder, self).__init__()
+        self.attention = MultiHeadAttention()
+        self.query = nn.Parameter(Variable(torch.rand(1, 512)))
+        self.fcn = nn.Linear(512, 6)
+
+    def forward(self, x):
+        x = F.relu(self.attention(self.query, x, x))
+        return self.fcn(x)
 
 
 class Guide(nn.Module):
