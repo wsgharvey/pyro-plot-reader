@@ -15,6 +15,7 @@ torch.manual_seed(4)
 
 guide = Guide()
 # guide.load_state_dict(torch.load(ARTIFACT_PATH))
+guide.cuda()
 
 optim = torch.optim.Adam(guide.parameters(), lr=1e-6)
 
@@ -24,6 +25,6 @@ csis = CSIS(model=model,
 csis.set_model_args()
 csis.set_compiler_args(num_particles=8)
 
-csis.compile(optim, num_steps=20)
+csis.compile(optim, num_steps=2000, cuda=True)
 
 torch.save(guide.state_dict(), ARTIFACT_PATH)

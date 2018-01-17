@@ -122,9 +122,15 @@ class Encoder(nn.Module):
         x = torch.cat(local_embeddings, 0)
 
         # add location embeddings
-        location_embeddings = [createLocationEmbedding(i, j)
-                               for i in range(0, 200, 20)
-                               for j in range(0, 200, 20)]
+        if isinstance(x.data, torch.cuda.FloatTensor):
+            location_embeddings = [createLocationEmbedding(i, j).cuda()
+                                   for i in range(0, 200, 20)
+                                   for j in range(0, 200, 20)] 
+        else:
+            location_embeddings = [createLocationEmbedding(i, j)
+                                   for i in range(0, 200, 20)
+                                   for j in range(0, 200, 20)]
+
         x = x + torch.cat(location_embeddings, 0)
 
         # run everything
@@ -163,12 +169,20 @@ class Guide(nn.Module):
         bar_heights = nn.Sigmoid()(decoded[:3])*10
         certainties = nn.Softplus()(decoded[3:])
 
+
+        if isinstance(bar_heights.data, torch.cuda.FloatTensor):
+            bar_heights = bar_heights.cpu()
+            certainties = certainties.cpu()
+
         for bar_num in range(3):
-            mean = bar_heights[bar_num]
-            print(mean.data.numpy()[0])
+            mode = bar_heights[bar_num]
+            try:
+                print(mode.data.numpy()[0])
+            except:
+                print(mode.data.cpu().numpy()[0])
             pyro.sample("bar_height_{}".format(bar_num),
                         proposal_dists.uniform_proposal,
                         Variable(torch.Tensor([0])),
                         Variable(torch.Tensor([10])),
-                        mean,
+                        mode,
                         certainties[bar_num])
