@@ -144,11 +144,12 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
         self.attention = MultiHeadAttention()
-        self.query = nn.Parameter(Variable(torch.rand(1, 512)))
-        self.fcn = nn.Linear(512, 6)
+        self.query = nn.Parameter((torch.rand(5, 512)))
+        self.fcn = nn.Linear(512*5, 6)
 
     def forward(self, x):
         x = F.relu(self.attention(self.query, x, x))
+        x = x.view(512*5)
         return self.fcn(x)
 
 
@@ -156,7 +157,7 @@ class Guide(nn.Module):
     def __init__(self):
         super(Guide, self).__init__()
         self.encoder = Encoder(N=2)
-        self.decoder = nn.Linear(51200, 6)
+        self.decoder = Decoder()
 
     def forward(self, observed_image=None):
         assert observed_image is not None
@@ -164,7 +165,7 @@ class Guide(nn.Module):
         img = observed_image.view(1, 3, 200, 200)
 
         encoding = self.encoder(img)
-        decoded = self.decoder(encoding.view(51200))
+        decoded = self.decoder(encoding)
 
         bar_heights = nn.Sigmoid()(decoded[:3])*10
         certainties = nn.Softplus()(decoded[3:])
