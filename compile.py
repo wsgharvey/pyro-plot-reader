@@ -11,10 +11,15 @@ from file_paths import ARTIFACT_PATH
 from model import model
 from guide import Guide
 
-torch.manual_seed(4)
+NEW_ARTIFACT = False
+N_STEPS = 2000
+CUDA = False
+
+torch.manual_seed(0)
 
 guide = Guide()
-guide.load_state_dict(torch.load(ARTIFACT_PATH))
+if not NEW_ARTIFACT:
+    guide.load_state_dict(torch.load(ARTIFACT_PATH))
 guide.cuda()
 
 optim = torch.optim.Adam(guide.parameters(), lr=1e-6)
@@ -25,6 +30,11 @@ csis = CSIS(model=model,
 csis.set_model_args()
 csis.set_compiler_args(num_particles=8)
 
-csis.compile(optim, num_steps=8000, cuda=True)
+csis.compile(optim, num_steps=8000, cuda=CUDA)
 
 torch.save(guide.state_dict(), ARTIFACT_PATH)
+
+log = csis.get_compile_log()
+mode = 'w' if NEW_ARTIFACT else 'a'
+with open(COMPILE_LOG_PATH, mode) as f:
+    f.write(log["validation"])
