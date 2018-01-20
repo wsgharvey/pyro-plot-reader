@@ -7,11 +7,12 @@ from torch.autograd import Variable
 
 import numpy as np
 
-import matplotlib
-import matplotlib.pyplot as plt
-
 from helpers import fig2tensor,\
                     set_size_pixels
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
 def model(observed_image=Variable(torch.zeros(200, 200))):
@@ -42,7 +43,7 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
     plt.close()
 
     flattened_image = image.view(-1)
-    noise_std = Variable(10*torch.ones(flattened_image.size()))
+    noise_std = Variable(torch.ones(flattened_image.size()))
     flattened_obs_image = observed_image.view(-1)
     observed_image = pyro.observe("observed_image",
                                   dist.normal,
