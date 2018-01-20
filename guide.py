@@ -144,19 +144,19 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
         self.attention = MultiHeadAttention()
-        self.query = nn.Parameter((torch.rand(5, 512)))
-        self.fcn = nn.Linear(512*5, 6)
+        self.query = nn.Parameter((torch.rand(3, 512)))
+        self.fcn = nn.Linear(512*3, 6)
 
     def forward(self, x):
         x = F.relu(self.attention(self.query, x, x))
-        x = x.view(512*5)
+        x = x.view(512*3)
         return self.fcn(x)
 
 
 class Guide(nn.Module):
     def __init__(self):
         super(Guide, self).__init__()
-        self.encoder = Encoder(N=2)
+        self.encoder = Encoder(N=0)
         self.decoder = Decoder()
 
     def forward(self, observed_image=None):

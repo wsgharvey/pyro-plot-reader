@@ -7,20 +7,21 @@ import pyro
 from pyro.infer import CSIS
 import pyro.distributions as dist
 
-from file_paths import ARTIFACT_PATH
+from file_paths import ARTIFACT_PATH, COMPILE_LOG_PATH
 from model import model
 from guide import Guide
 
-NEW_ARTIFACT = False
-N_STEPS = 2000
-CUDA = False
+NEW_ARTIFACT = True
+N_STEPS = 10000
+CUDA = True
 
 torch.manual_seed(0)
 
 guide = Guide()
 if not NEW_ARTIFACT:
     guide.load_state_dict(torch.load(ARTIFACT_PATH))
-guide.cuda()
+if CUDA:
+    guide.cuda()
 
 optim = torch.optim.Adam(guide.parameters(), lr=1e-6)
 
@@ -30,11 +31,13 @@ csis = CSIS(model=model,
 csis.set_model_args()
 csis.set_compiler_args(num_particles=8)
 
-csis.compile(optim, num_steps=8000, cuda=CUDA)
+csis.compile(optim, num_steps=N_STEPS, cuda=CUDA)
 
 torch.save(guide.state_dict(), ARTIFACT_PATH)
 
 log = csis.get_compile_log()
 mode = 'w' if NEW_ARTIFACT else 'a'
 with open(COMPILE_LOG_PATH, mode) as f:
-    f.write(log["validation"])
+    losses = log["validation"]
+    string = "\n".join(map(",".join, map(lambda x: map(str, x), losses))) + "\n"
+    f.write(string)
