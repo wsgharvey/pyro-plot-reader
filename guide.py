@@ -11,10 +11,21 @@ import pyro.infer.csis.proposal_dists as proposal_dists
 import numpy as np
 
 
-def createLocationEmbedding(x, y):
-    emb = [np.sin(x/(10000**(2*i/256))) for i in range(256)] + \
-          [np.cos(x/(10000**(2*i/256))) for i in range(256)]
-    return Variable(torch.Tensor(np.array(emb))).view(1, 512)
+class LocationEmbeddingMaker(object):
+    def __init__(self, x_range, y_range):
+        # TODO: see if it is good to make these optimisable
+        self.x_embedder = Variable(torch.normal(0, torch.ones(512)))/x_range
+        self.y_embedder = Variable(torch.normal(0, torch.ones(512)))/y_range
+
+    def createLocationEmbedding(self, x, y):
+        emb_x = [np.sin(x/(30**(i/256))) for i in range(256)] + \
+                [np.cos(x/(30**(i/256))) for i in range(256)]
+        emb_y = [np.cos(y/(30**(i/256))) for i in range(256)] + \
+                [np.sin(y/(30**(i/256))) for i in range(256)]
+        emb = Variable(torch.Tensor(np.array(emb_x) +
+                                    np.array(emb_y)))
+        emb += x*self.x_embedder + y*self.y_embedder
+        return emb.view(1, 512)
 
 
 class DotProductAttention(nn.Module):
@@ -111,25 +122,26 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.N = N
         self.layers = nn.ModuleList([EncoderLayer() for _ in range(N)])
-        self.local_embedder = LocalEmbedder()
+        self.location_embedder = LocationEmbeddingMaker(200, 200)
+        self.view_embedder = LocalEmbedder()
 
     def forward(self, x):
         x = x.view(1, 3, 200, 200)
 
         # find and embed each seperate locations
-        locations = (x[:, :, 20*j:20*(j+1), 20*i:20*(i+1)].clone() for i in range(10) for j in range(10))
-        local_embeddings = [self.local_embedder(loc) for loc in locations]
+        locations = (x[:, :, 10*j:10*(j+2), 10*i:10*(i+2)].clone() for i in range(19) for j in range(19))
+        local_embeddings = [self.view_embedder(loc) for loc in locations]
         x = torch.cat(local_embeddings, 0)
 
         # add location embeddings
         if isinstance(x.data, torch.cuda.FloatTensor):
-            location_embeddings = [createLocationEmbedding(i, j).cuda()
-                                   for i in range(0, 200, 20)
-                                   for j in range(0, 200, 20)]
+            location_embeddings = [self.location_embedder.createLocationEmbedding(i, j).cuda()
+                                   for i in range(0, 200, 10)
+                                   for j in range(0, 200, 10)]
         else:
-            location_embeddings = [createLocationEmbedding(i, j)
-                                   for i in range(0, 200, 20)
-                                   for j in range(0, 200, 20)]
+            location_embeddings = [self.location_embedder.createLocationEmbedding(i, j)
+                                   for i in range(0, 190, 10)
+                                   for j in range(0, 190, 10)]
 
         x = x + torch.cat(location_embeddings, 0)
 
@@ -144,19 +156,19 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
         self.attention = MultiHeadAttention()
-        self.query = nn.Parameter((torch.rand(3, 512)))
-        self.fcn = nn.Linear(512*3, 6)
+        self.query = nn.Parameter((torch.rand(20, 512)))
+        self.fcn = nn.Linear(20*20, 6)
 
     def forward(self, x):
         x = F.relu(self.attention(self.query, x, x))
-        x = x.view(512*3)
+        x = x.view(512*20)
         return self.fcn(x)
 
 
 class Guide(nn.Module):
     def __init__(self):
         super(Guide, self).__init__()
-        self.encoder = Encoder(N=0)
+        self.encoder = Encoder(N=1)
         self.decoder = Decoder()
 
     def forward(self, observed_image=None):
