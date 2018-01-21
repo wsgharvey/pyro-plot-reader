@@ -11,11 +11,12 @@ import pyro.infer.csis.proposal_dists as proposal_dists
 import numpy as np
 
 
-class LocationEmbeddingMaker(object):
+class LocationEmbeddingMaker(nn.Module):
     def __init__(self, x_range, y_range):
-        # TODO: see if it is good to make these optimisable
-        self.x_embedder = Variable(torch.normal(0, torch.ones(512)))/x_range
-        self.y_embedder = Variable(torch.normal(0, torch.ones(512)))/y_range
+        super(LocationEmbeddingMaker, self).__init__()
+        # TODO: see if it is good to make these not optimisable
+        self.x_embedder = nn.Parameter(torch.normal(0, torch.ones(512))/x_range)
+        self.y_embedder = nn.Parameter(torch.normal(0, torch.ones(512))/y_range)
 
     def createLocationEmbedding(self, x, y):
         emb_x = [np.sin(x/(30**(i/256))) for i in range(256)] + \
@@ -24,6 +25,8 @@ class LocationEmbeddingMaker(object):
                 [np.sin(y/(30**(i/256))) for i in range(256)]
         emb = Variable(torch.Tensor(np.array(emb_x) +
                                     np.array(emb_y)))
+        if isinstance(self.x_embedder.data, torch.cuda.FloatTensor):
+            emb = emb.cuda() 
         emb += x*self.x_embedder + y*self.y_embedder
         return emb.view(1, 512)
 
@@ -136,8 +139,8 @@ class Encoder(nn.Module):
         # add location embeddings
         if isinstance(x.data, torch.cuda.FloatTensor):
             location_embeddings = [self.location_embedder.createLocationEmbedding(i, j).cuda()
-                                   for i in range(0, 200, 10)
-                                   for j in range(0, 200, 10)]
+                                   for i in range(0, 190, 10)
+                                   for j in range(0, 190, 10)]
         else:
             location_embeddings = [self.location_embedder.createLocationEmbedding(i, j)
                                    for i in range(0, 190, 10)
@@ -157,7 +160,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.attention = MultiHeadAttention()
         self.query = nn.Parameter((torch.rand(20, 512)))
-        self.fcn = nn.Linear(20*20, 6)
+        self.fcn = nn.Linear(512*20, 6)
 
     def forward(self, x):
         x = F.relu(self.attention(self.query, x, x))

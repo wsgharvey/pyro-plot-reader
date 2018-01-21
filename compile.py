@@ -12,8 +12,8 @@ from model import model
 from guide import Guide
 
 NEW_ARTIFACT = True
-N_STEPS = 10000
-CUDA = False 
+N_STEPS = 2000
+CUDA = True 
 
 torch.manual_seed(0)
 
