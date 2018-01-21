@@ -157,7 +157,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.attention = MultiHeadAttention()
         self.query = nn.Parameter((torch.rand(20, 512)))
-        self.fcn = nn.Linear(20*20, 6)
+        self.fcn = nn.Linear(20*20, 15)
 
     def forward(self, x):
         x = F.relu(self.attention(self.query, x, x))
@@ -179,15 +179,21 @@ class Guide(nn.Module):
         encoding = self.encoder(img)
         decoded = self.decoder(encoding)
 
-        bar_heights = nn.Sigmoid()(decoded[:3])*10
-        certainties = nn.Softplus()(decoded[3:])
-
+        bar_heights = nn.Sigmoid()(decoded[:5])*10
+        certainties = nn.Softplus()(decoded[5:10])
+        n_bars_probs = decoded[10:15]
 
         if isinstance(bar_heights.data, torch.cuda.FloatTensor):
             bar_heights = bar_heights.cpu()
             certainties = certainties.cpu()
+            n_bars_probs = n_bars_probs.cpu()
 
-        for bar_num in range(3):
+        num_bars = pyro.sample("num_bars",
+                               dist.categorical,
+                               ps=n_bars_probs)
+        num_bars = num_bars.data.numpy()[0]
+
+        for bar_num in range(num_bars):
             mode = bar_heights[bar_num]
             try:
                 print(mode.data.numpy()[0])

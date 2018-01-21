@@ -21,10 +21,13 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
     max_height = 10
     height, width = 200, 200
 
-    num_bars = 3
+    num_bars = pyro.sample("num_bars",
+                           dist.categorical,
+                           ps=Variable(torch.Tensor(np.array([0, 0, 0.25, 0.25, 0.25, 0.25]))))
+    num_bars = num_bars.data.numpy()[0]
 
     bar_heights = []
-    for bar_num in range(3):
+    for bar_num in range(num_bars):
         bar_height = pyro.sample("bar_height_{}".format(bar_num),
                                  dist.uniform,
                                  Variable(torch.Tensor([0])),
