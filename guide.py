@@ -160,7 +160,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.attention = MultiHeadAttention()
         self.query = nn.Parameter((torch.rand(20, 512)))
-        self.fcn = nn.Linear(20*20, 15)
+        self.fcn = nn.Linear(512*20, 16)
 
     def forward(self, x):
         x = F.relu(self.attention(self.query, x, x))
@@ -184,7 +184,7 @@ class Guide(nn.Module):
 
         bar_heights = nn.Sigmoid()(decoded[:5])*10
         certainties = nn.Softplus()(decoded[5:10])
-        n_bars_probs = decoded[10:15]
+        n_bars_probs = nn.Softmax()(decoded[10:16].view(1, -1)).view(-1)
 
         if isinstance(bar_heights.data, torch.cuda.FloatTensor):
             bar_heights = bar_heights.cpu()

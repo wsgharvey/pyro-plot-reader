@@ -23,7 +23,7 @@ if not NEW_ARTIFACT:
 if CUDA:
     guide.cuda()
 
-optim = torch.optim.Adam(guide.parameters(), lr=1e-4)
+optim = torch.optim.Adam(guide.parameters(), lr=1e-6)
 
 csis = CSIS(model=model,
             guide=guide,
