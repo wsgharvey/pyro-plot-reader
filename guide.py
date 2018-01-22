@@ -14,7 +14,6 @@ import numpy as np
 class LocationEmbeddingMaker(nn.Module):
     def __init__(self, x_range, y_range):
         super(LocationEmbeddingMaker, self).__init__()
-        # TODO: see if it is good to make these not optimisable
         self.x_embedder = nn.Parameter(torch.normal(0, torch.ones(512))/x_range)
         self.y_embedder = nn.Parameter(torch.normal(0, torch.ones(512))/y_range)
 
