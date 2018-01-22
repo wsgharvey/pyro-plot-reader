@@ -26,7 +26,7 @@ class LocationEmbeddingMaker(nn.Module):
         emb = Variable(torch.Tensor(np.array(emb_x) +
                                     np.array(emb_y)))
         if isinstance(self.x_embedder.data, torch.cuda.FloatTensor):
-            emb = emb.cuda() 
+            emb = emb.cuda()
         emb += x*self.x_embedder + y*self.y_embedder
         return emb.view(1, 512)
 
@@ -40,6 +40,7 @@ class DotProductAttention(nn.Module):
         d_k = K.size()[0]
         weights /= d_k**0.5
         weights = torch.nn.Softmax()(weights)
+        print(weights)
 
         return torch.mm(weights, V)
 
