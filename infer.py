@@ -32,7 +32,7 @@ def expected_val(weighted_traces, attribute):
 
 
 guide = Guide()
-guide.load_state_dict(torch.load(ARTIFACT_PATH))
+guide.load_state_dict(torch.load(ARTIFACT_PATH, map_location=lambda storage, loc: storage))
 
 csis = infer.CSIS(model=model,
                   guide=guide,
