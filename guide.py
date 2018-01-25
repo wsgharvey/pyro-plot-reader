@@ -41,6 +41,21 @@ class DotProductAttention(nn.Module):
         weights /= d_k**0.5
         weights = torch.nn.Softmax()(weights)
 
+
+
+        # from PIL import Image
+        # for query in weights:
+        #    canvas = np.zeros((20, 20))
+        #    for i in range(19):
+        #        for j in range(19):
+        #            canvas[j:j+2, i:i+2] += query[i*19+j].data.numpy()[0]
+        #    canvas = 255 * canvas / np.amax(canvas)
+        #    canvas = Image.fromarray(canvas)
+        #    canvas.show()
+        #    print("done a query")
+        # assert False
+
+
         return torch.mm(weights, V)
 
 
@@ -185,7 +200,6 @@ class Guide(nn.Module):
         bar_heights = nn.Sigmoid()(decoded[:3])*10
         certainties = nn.Softplus()(decoded[3:])
 
-
         if isinstance(bar_heights.data, torch.cuda.FloatTensor):
             bar_heights = bar_heights.cpu()
             certainties = certainties.cpu()
@@ -202,3 +216,5 @@ class Guide(nn.Module):
                         Variable(torch.Tensor([10])),
                         mode,
                         certainties[bar_num])
+            with open("data/bar-3d/mode-and-certainties", 'a') as f:
+                f.write("{},{}\n".format(mode.data.numpy()[0], certainties.data.numpy()[bar_num]))
