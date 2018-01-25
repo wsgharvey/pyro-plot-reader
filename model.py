@@ -31,6 +31,11 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
                                  Variable(torch.Tensor([max_height])))
         bar_heights.append(bar_height.data.numpy()[0])
 
+    # colour = pyro.sample("colour".format(bar_num),
+    #                      dist.categorical,
+    #                      ps=Variable(torch.ones(7))/7,
+    #                      vs=['b', 'g', 'r', 'c', 'm', 'y', 'k'])
+
     fig, ax = plt.subplots()
     ax.bar(range(num_bars),
            bar_heights,
