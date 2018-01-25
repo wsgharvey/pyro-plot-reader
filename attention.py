@@ -9,20 +9,20 @@ import numpy as np
 class LocationEmbeddingMaker(nn.Module):
     def __init__(self, x_range, y_range):
         super(LocationEmbeddingMaker, self).__init__()
-        self.x_embedder = nn.Parameter(torch.normal(0, torch.ones(512))/x_range)
-        self.y_embedder = nn.Parameter(torch.normal(0, torch.ones(512))/y_range)
+        self.x_embedder = nn.Parameter(torch.normal(0, torch.ones(128))/x_range)
+        self.y_embedder = nn.Parameter(torch.normal(0, torch.ones(128))/y_range)
 
     def createLocationEmbedding(self, x, y):
-        emb_x = [np.sin(x/(30**(i/256))) for i in range(256)] + \
-                [np.cos(x/(30**(i/256))) for i in range(256)]
-        emb_y = [np.cos(y/(30**(i/256))) for i in range(256)] + \
-                [np.sin(y/(30**(i/256))) for i in range(256)]
+        emb_x = [np.sin(x/(30**(i/64))) for i in range(64)] + \
+                [np.cos(x/(30**(i/64))) for i in range(64)]
+        emb_y = [np.cos(y/(30**(i/64))) for i in range(64)] + \
+                [np.sin(y/(30**(i/64))) for i in range(64)]
         emb = Variable(torch.Tensor(np.array(emb_x) +
                                     np.array(emb_y)))
         if isinstance(self.x_embedder.data, torch.cuda.FloatTensor):
             emb = emb.cuda()
         emb += x*self.x_embedder + y*self.y_embedder
-        return emb.view(1, 512)
+        return emb.view(1, 128)
 
 
 class DotProductAttention(nn.Module):

@@ -13,7 +13,7 @@ from guide import Guide
 
 NEW_ARTIFACT = True
 N_STEPS = 2000
-CUDA = True 
+CUDA = False
 
 torch.manual_seed(0)
 
@@ -23,7 +23,7 @@ if not NEW_ARTIFACT:
 if CUDA:
     guide.cuda()
 
-optim = torch.optim.Adam(guide.parameters(), lr=1e-6)
+optim = torch.optim.Adam(guide.parameters(), lr=1e-4)
 
 csis = CSIS(model=model,
             guide=guide,

@@ -25,7 +25,7 @@ class ViewEmbedder(nn.Module):
         self.conv7 = nn.Conv2d(64, 128, 3)
         self.conv8 = nn.Conv2d(128, 128, 3)
         self.conv9 = nn.Conv2d(128, 256, 3)
-        self.conv10 = nn.Conv2d(256, 512, 2)
+        self.conv10 = nn.Conv2d(256, 128, 2)
 
     def forward(self, x):
         x = x.view(1, 3, 20, 20)
@@ -39,140 +39,93 @@ class ViewEmbedder(nn.Module):
         x = F.relu(self.conv8(x))
         x = F.relu(self.conv9(x))
         x = self.conv10(x)
-        x = x.view(1, 512)
+        x = x.view(1, 128)
+        return x
+
+
+class UniformProposalLayer(nn.Module):
+    def __init__(self, input_dim):
+        super(UniformProposalLayer, self).__init__()
+        self.fcn1 = nn.Linear(input_dim, input_dim)
+        self.fcn2 = nn.Linear(input_dim, 2)
+
+    def forward(self, x):
+        x = x.view(1, -1)
+        x = self.fcn2(F.relu(self.fcn1(x)))
+        modes = x[:, 0]
+        certainties = x[:, 1]
+        modes = nn.Sigmoid()(modes)
+        certainties = nn.Softplus()(certainties)
+        return modes, certainties
+
+
+class QueryLayer(nn.Module):
+    def __init__(self, input_dim, n_queries, d_k):
+        super(QueryLayer, self).__init__()
+        self.n_queries = n_queries
+        self.d_k = d_k
+        self.fcn1 = nn.Linear(input_dim, n_queries*d_k)
+        self.fcn2 = nn.Linear(n_queries*d_k, n_queries*d_k)
+
+    def forward(self, x):
+        x = x.view(1, -1)
+        x = self.fcn2(F.relu(self.fcn1(x)))
+        x = x.view(self.n_queries, self.d_k)
         return x
 
 
 class Guide(nn.Module):
-    def __init__(self):
+    def __init__(self, d_k=64, d_v=128, n_queries=16, hidden_size=2048, lstm_layers=1):
         super(Guide, self).__init__()
         self.view_embedder = ViewEmbedder()
-        self.MHA = MultiHeadAttention(h=10)
-        self.lstm = nn.LSTM(input_size=10*512+,
-                            hidden_size=4096,
-                            num_layes=2,
+        self.location_embedder = LocationEmbeddingMaker(200, 200)
+        self.mha = MultiHeadAttention(h=8, d_k=d_k, d_v=d_v, d_model=d_v)
+        self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
+        self.initial_cell = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
+        self.lstm = nn.LSTM(input_size=n_queries*d_v,
+                            hidden_size=hidden_size,
+                            num_layers=lstm_layers,
                             dropout=0.1)
+        self.proposal_layers = nn.ModuleList([UniformProposalLayer(hidden_size) for _ in range(3)])
+        self.query_layers = nn.ModuleList([QueryLayer(hidden_size, n_queries, d_v) for _ in range(3)])
 
-    def forward(self, x):
-        """
-        """
-        x = x.view(1, 3, 200, 200)
+    def forward(self, observed_image=None):
+        x = observed_image.view(1, 3, 200, 200)
+
+        pyro.sample("num_bars",
+                    dist.categorical,
+                    ps=Variable(torch.Tensor(np.array([0., 0., 0., 1., 0., 0.]))))
 
         # find and embed each seperate location
         views = (x[:, :, 10*j:10*(j+2), 10*i:10*(i+2)].clone() for i in range(19) for j in range(19))
         view_embeddings = [self.view_embedder(view) for view in views]
 
         # add location embeddings
+        location_embeddings = [self.location_embedder.createLocationEmbedding(i, j)
+                               for i in range(0, 190, 10)
+                               for j in range(0, 190, 10)]
         if isinstance(x.data, torch.cuda.FloatTensor):
-            location_embeddings = [self.location_embedder.createLocationEmbedding(i, j).cuda()
-                                   for i in range(0, 190, 10)
-                                   for j in range(0, 190, 10)]
-        else:
-            location_embeddings = [self.location_embedder.createLocationEmbedding(i, j)
-                                   for i in range(0, 190, 10)
-                                   for j in range(0, 190, 10)]
+            location_embeddings = [emb.cuda() for emb in location_embeddings]
 
         x = torch.cat(view_embeddings, 0) + torch.cat(location_embeddings, 0)
 
+        hidden, cell = self.initial_hidden, self.initial_cell
+        for step in range(3):
+            queries = self.query_layers[step](hidden)
+            lstm_input = self.mha(queries, x, x).view(1, 2048)
+            lstm_output, (hidden, cell) = self.lstm(lstm_input, (hidden, cell))
 
-# class EncoderLayer(nn.Module):
-#     def __init__(self, d_model=512, dff=2048):
-#         super(EncoderLayer, self).__init__()
-#         self.attention = MultiHeadAttention(h=1)
-#         self.fcn1 = nn.Linear(d_model, dff)
-#         self.fcn2 = nn.Linear(dff, d_model)
-#
-#     def forward(self, x):
-#         x = x + self.attention(x, x, x)
-#         x = x + self.fcn2(F.relu(self.fcn1(x)))
-#         return x
-#
-#
-# class Encoder(nn.Module):
-#     def __init__(self, N):
-#         super(Encoder, self).__init__()
-#         self.N = N
-#         self.layers = nn.ModuleList([EncoderLayer() for _ in range(N)])
-#         self.location_embedder = LocationEmbeddingMaker(200, 200)
-#         self.view_embedder = LocalEmbedder()
-#
-#     def forward(self, x):
-#         x = x.view(1, 3, 200, 200)
-#
-#         # find and embed each seperate locations
-#         locations = (x[:, :, 10*j:10*(j+2), 10*i:10*(i+2)].clone() for i in range(19) for j in range(19))
-#         local_embeddings = [self.view_embedder(loc) for loc in locations]
-#         x = torch.cat(local_embeddings, 0)
-#
-#         # add location embeddings
-#         if isinstance(x.data, torch.cuda.FloatTensor):
-#             location_embeddings = [self.location_embedder.createLocationEmbedding(i, j).cuda()
-#                                    for i in range(0, 190, 10)
-#                                    for j in range(0, 190, 10)]
-#         else:
-#             location_embeddings = [self.location_embedder.createLocationEmbedding(i, j)
-#                                    for i in range(0, 190, 10)
-#                                    for j in range(0, 190, 10)]
-#
-#         x = x + torch.cat(location_embeddings, 0)
-#
-#         # run everything
-#         for layer in self.layers:
-#             x = layer(x)
-#
-#         return x
-#
-#
-# class Decoder(nn.Module):
-#     def __init__(self):
-#         super(Decoder, self).__init__()
-#         self.attention = MultiHeadAttention()
-#         self.query = nn.Parameter((torch.rand(20, 512)))
-#         self.fcn = nn.Linear(512*20, 16)
-#
-#     def forward(self, x):
-#         x = F.relu(self.attention(self.query, x, x))
-#         x = x.view(512*20)
-#         return self.fcn(x)
-#
-#
-# class Guide(nn.Module):
-#     def __init__(self):
-#         super(Guide, self).__init__()
-#         self.encoder = Encoder(N=1)
-#         self.decoder = Decoder()
-#
-#     def forward(self, observed_image=None):
-#         assert observed_image is not None
-#         observed_image = F.relu(torch.floor(observed_image - F.relu(observed_image-255)))    # simulate getting turned into a png and back
-#         img = observed_image.view(1, 3, 200, 200)
-#
-#         encoding = self.encoder(img)
-#         decoded = self.decoder(encoding)
-#
-#         bar_heights = nn.Sigmoid()(decoded[:5])*10
-#         certainties = nn.Softplus()(decoded[5:10])
-#         n_bars_probs = nn.Softmax()(decoded[10:16].view(1, -1)).view(-1)
-#
-#         if isinstance(bar_heights.data, torch.cuda.FloatTensor):
-#             bar_heights = bar_heights.cpu()
-#             certainties = certainties.cpu()
-#             n_bars_probs = n_bars_probs.cpu()
-#
-#         num_bars = pyro.sample("num_bars",
-#                                dist.categorical,
-#                                ps=n_bars_probs)
-#         num_bars = num_bars.data.numpy()[0]
-#
-#         for bar_num in range(num_bars):
-#             mode = bar_heights[bar_num]
-#             try:
-#                 print(mode.data.numpy()[0])
-#             except:
-#                 print(mode.data.cpu().numpy()[0])
-#             pyro.sample("bar_height_{}".format(bar_num),
-#                         proposal_dists.uniform_proposal,
-#                         Variable(torch.Tensor([0])),
-#                         Variable(torch.Tensor([10])),
-#                         mode,
-#                         certainties[bar_num])
+            modes, certainties = self.proposal_layers[step](lstm_output)
+            mode, certainty = modes[0], certainties[0]
+
+            if isinstance(mode, torch.cuda.FloatTensor):
+                mode = mode.cpu()
+                certainty = certainty.cpu()
+            print(mode.data.numpy()[0])
+
+            pyro.sample("bar_height_{}".format(step),
+                        proposal_dists.uniform_proposal,
+                        Variable(torch.Tensor([0])),
+                        Variable(torch.Tensor([10])),
+                        mode*10,    # TODO: move scaling somewhere else
+                        certainty)
