@@ -41,18 +41,24 @@ class DotProductAttention(nn.Module):
         weights /= d_k**0.5
         weights = torch.nn.Softmax()(weights)
 
-        # from PIL import Image
-        # for query in weights:
-        #    canvas = np.zeros((20, 20))
-        #    for i in range(19):
-        #        for j in range(19):
-        #            canvas[j:j+2, i:i+2] += query[i*19+j].data.numpy()[0]
-        #    canvas = 255 * canvas / np.amax(canvas)
-        #    canvas = Image.fromarray(canvas)
-        #    canvas.show()
-        #    print("done a query")
-        # assert False
-
+        if len(Q) == 20:
+            from PIL import Image
+            canvas = np.zeros((20, 20))
+            for query in weights:
+                for i in range(19):
+                    for j in range(19):
+                        canvas[j:j+2, i:i+2] += query[i*19+j].data.numpy()[0]
+            canvas = 255 * canvas / 3   # normalise so maximum is ~255 or under
+            canvas = np.repeat(canvas, 10, axis=0)
+            canvas = np.repeat(canvas, 10, axis=1)
+            canvas = Image.fromarray(canvas)
+            canvas = canvas.convert('RGB')
+            global ij
+            try:
+                ij += 1
+            except NameError:
+                ij = 0
+            canvas.save("/home/will/Documents/4yp/plots/plot-reader/attention/checkpoint1/{}.png".format(ij))
         return torch.mm(weights, V)
 
 
