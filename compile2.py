@@ -7,12 +7,16 @@ import pyro
 from pyro.infer import CSIS
 import pyro.distributions as dist
 
-from file_paths import ARTIFACT_PATH, COMPILE_LOG_PATH
+# from file_paths import ARTIFACT_PATH, COMPILE_LOG_PATH
 from model import model
 from guide import Guide
 
+ARTIFACT_PATH = "artifacts/bar-3d-2.pt" 
+COMPILE_LOG_PATH = "artifacts/bar-3d-2"
+
+
 NEW_ARTIFACT = False
-N_STEPS = 3000
+N_STEPS = 3000 
 CUDA = True 
 
 torch.manual_seed(0)
@@ -26,7 +30,7 @@ if CUDA:
 # set csis.iterations around here
 
 
-optim = torch.optim.Adam(guide.parameters(), lr=1e-6)
+optim = torch.optim.Adam(guide.parameters(), lr=1e-4)
 
 csis = CSIS(model=model,
             guide=guide,

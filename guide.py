@@ -40,7 +40,6 @@ class DotProductAttention(nn.Module):
         d_k = K.size()[0]
         weights /= d_k**0.5
         weights = torch.nn.Softmax()(weights)
-        print(weights)
 
         return torch.mm(weights, V)
 
