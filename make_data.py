@@ -35,6 +35,7 @@ def create_dataset(file_path,
     with open(file_path + "/targets.csv", 'w') as f:
         f.write("\n".join(targets))
 
+
 # Create README and directories if they don't already exist
 open("{}/README.md".format(DATASET_PATH), 'a').close()
 if not os.path.exists("{}/train".format(DATASET_PATH)):

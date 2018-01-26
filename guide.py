@@ -59,16 +59,31 @@ class UniformProposalLayer(nn.Module):
         return modes, certainties
 
 
+# class QueryLayer(nn.Module):
+#     def __init__(self, input_dim, n_queries, d_k):
+#         super(QueryLayer, self).__init__()
+#         self.n_queries = n_queries
+#         self.d_k = d_k
+#         self.fcn1 = nn.Linear(input_dim, n_queries*d_k)
+#         self.fcn2 = nn.Linear(n_queries*d_k, n_queries*d_k)
+#
+#     def forward(self, x):
+#         x = x.view(1, -1)
+#         x = self.fcn2(F.relu(self.fcn1(x)))
+#         x = x.view(self.n_queries, self.d_k)
+#         return x
+
+
 class QueryLayer(nn.Module):
-    def __init__(self, input_dim, n_queries, d_k):
+    def __init__(self, input_dim, hidden_size, n_queries, d_k):
         super(QueryLayer, self).__init__()
         self.n_queries = n_queries
         self.d_k = d_k
-        self.fcn1 = nn.Linear(input_dim, n_queries*d_k)
+        self.fcn1 = nn.Linear(input_dim+hidden_size, n_queries*d_k)
         self.fcn2 = nn.Linear(n_queries*d_k, n_queries*d_k)
 
-    def forward(self, x):
-        x = x.view(1, -1)
+    def forward(self, sample_details, prev_hidden):
+        sample_details = x.view(1, -1)
         x = self.fcn2(F.relu(self.fcn1(x)))
         x = x.view(self.n_queries, self.d_k)
         return x
