@@ -186,7 +186,7 @@ class Decoder(nn.Module):
 class Guide(nn.Module):
     def __init__(self):
         super(Guide, self).__init__()
-        self.encoder = Encoder(N=1)
+        self.encoder = Encoder(N=0)
         self.decoder = Decoder()
 
     def forward(self, observed_image=None):

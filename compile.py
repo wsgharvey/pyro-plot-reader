@@ -26,7 +26,7 @@ if CUDA:
 # set csis.iterations around here
 
 
-optim = torch.optim.Adam(guide.parameters(), lr=1e-6)
+optim = torch.optim.Adam(guide.parameters(), lr=1e-4)
 
 csis = CSIS(model=model,
             guide=guide,
