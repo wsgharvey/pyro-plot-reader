@@ -233,5 +233,6 @@ class Guide(nn.Module):
                         Variable(torch.Tensor([10])),
                         mode,
                         certainties[bar_num])
+            import os.path
             with open("data/bar-3d/mode-and-certainties", 'a') as f:
                 f.write("{},{}\n".format(mode.data.numpy()[0], certainties.data.numpy()[bar_num]))

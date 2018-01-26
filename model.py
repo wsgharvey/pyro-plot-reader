@@ -39,6 +39,12 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
 
     # get the graph as a matrix
     fig = set_size_pixels(fig, (width, height))
+    # import os.path
+    # for i in range(100):
+    #     if not os.path.isfile("/home/will/Documents/D3m/4yp-slide/posterior/{}.png".format(i)):
+    #         for j in range(i, i+5):
+    #             plt.savefig("/home/will/Documents/D3m/4yp-slide/posterior/{}.png".format(j))
+    #         break
     image = Variable(fig2tensor(fig))
     plt.close()
 
