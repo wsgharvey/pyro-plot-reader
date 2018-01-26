@@ -23,20 +23,20 @@ def beta_inv_cdf(p, a, b):
 
 
 # Calculate the confidence intervals and save them to a file
-# with open('data/bar-3d/mode-and-certainties', 'r') as f, open('data/bar-3d/confidence-intervals', 'w') as g:
-#     while True:
-#         try:
-#             mode, certainty = map(float, (f.readline()[:-2]).split(","))
-#             norm_mode = mode/10
-#             norm_cert = certainty+2
-#             a = norm_mode * (norm_cert-2)
-#             b = (1 - norm_mode) * (norm_cert-2)
-#
-#             bounds = map(lambda p: beta_inv_cdf(p, a, b)*10, [0.025, 0.975])
-#
-#             g.write("{},{}\n".format(*bounds))
-#         except ValueError:
-#             break
+with open('data/bar-3d/mode-and-certainties', 'r') as f, open('data/bar-3d/confidence-intervals', 'w') as g:
+    while True:
+        try:
+            mode, certainty = map(float, (f.readline()[:-2]).split(","))
+            norm_mode = mode/10
+            norm_cert = certainty+2
+            a = norm_mode * (norm_cert-2)
+            b = (1 - norm_mode) * (norm_cert-2)
+
+            bounds = map(lambda p: beta_inv_cdf(p, a, b)*10, [0.025, 0.975])
+
+            g.write("{},{}\n".format(*bounds))
+        except ValueError:
+            break
 
 
 with open('data/bar-3d/test_predictions.csv', 'r') as pred, open('data/bar-3d/confidence-intervals', 'r') as conf:
@@ -56,5 +56,5 @@ with open('data/bar-3d/test_predictions.csv', 'r') as pred, open('data/bar-3d/co
         ax.set_ylim(0, 10)
 
         fig = set_size_pixels(fig, (200, 200))
-        fig.savefig('/home/will/Documents/4yp/plots/plot-reader/predictions/checkpoint1/{}.pdf'.format(graph_no))
+        fig.savefig('/home/will/Documents/4yp/plots/plot-reader/predictions/checkpoint2/{}.pdf'.format(graph_no))
         plt.close()
