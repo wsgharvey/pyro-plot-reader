@@ -11,6 +11,7 @@ import pyro.infer.csis.proposal_dists as proposal_dists
 import numpy as np
 
 from attention import LocationEmbeddingMaker, MultiHeadAttention
+from generic_nn import SampleStatementContainer
 
 
 class ViewEmbedder(nn.Module):
@@ -43,47 +44,32 @@ class ViewEmbedder(nn.Module):
         return x
 
 
-class UniformProposalLayer(nn.Module):
-    def __init__(self, input_dim):
-        super(UniformProposalLayer, self).__init__()
-        self.fcn1 = nn.Linear(input_dim, input_dim)
-        self.fcn2 = nn.Linear(input_dim, 2)
+class SampleEmbedder(nn.Module):
+    """
+    use one of these per sample address
+    """
+    def __init__(self, output_dim):
+        super(SampleEmbedder, self).__init__()
+        self.fcn1 = nn.Linear(1, output_dim)
+        self.fcn2 = nn.Linear(output_dim, output_dim)
 
     def forward(self, x):
-        x = x.view(1, -1)
-        x = self.fcn2(F.relu(self.fcn1(x)))
-        modes = x[:, 0]
-        certainties = x[:, 1]
-        modes = nn.Sigmoid()(modes)
-        certainties = nn.Softplus()(certainties)
-        return modes, certainties
-
-
-# class QueryLayer(nn.Module):
-#     def __init__(self, input_dim, n_queries, d_k):
-#         super(QueryLayer, self).__init__()
-#         self.n_queries = n_queries
-#         self.d_k = d_k
-#         self.fcn1 = nn.Linear(input_dim, n_queries*d_k)
-#         self.fcn2 = nn.Linear(n_queries*d_k, n_queries*d_k)
-#
-#     def forward(self, x):
-#         x = x.view(1, -1)
-#         x = self.fcn2(F.relu(self.fcn1(x)))
-#         x = x.view(self.n_queries, self.d_k)
-#         return x
+        x = x.view(1, 1)
+        return self.fcn2(F.relu(self.fcn1(x)))
 
 
 class QueryLayer(nn.Module):
-    def __init__(self, input_dim, hidden_size, n_queries, d_k):
+    def __init__(self, t_dim, hidden_size, n_queries, d_k):
         super(QueryLayer, self).__init__()
         self.n_queries = n_queries
         self.d_k = d_k
-        self.fcn1 = nn.Linear(input_dim+hidden_size, n_queries*d_k)
+        self.fcn1 = nn.Linear(t_dim+hidden_size, n_queries*d_k)
         self.fcn2 = nn.Linear(n_queries*d_k, n_queries*d_k)
 
-    def forward(self, sample_details, prev_hidden):
-        sample_details = x.view(1, -1)
+    def forward(self, t, prev_hidden):
+        t = t.view(1, -1)
+        prev_hidden = prev_hidden.view(1, -1)
+        x = torch.cat((t, prev_hidden), 1)
         x = self.fcn2(F.relu(self.fcn1(x)))
         x = x.view(self.n_queries, self.d_k)
         return x
@@ -92,6 +78,16 @@ class QueryLayer(nn.Module):
 class Guide(nn.Module):
     def __init__(self, d_k=64, d_v=128, n_queries=16, hidden_size=2048, lstm_layers=1):
         super(Guide, self).__init__()
+        sample_statements = {"bar_height": {"instances": 3,
+                                            "dist": proposal_dists.UniformProposalLayer)}
+        self.tracker = SampleStatementContainer(sample_statements)
+        """
+        need to be able to:
+            access sample embedder for each address
+            access proposal layer for each instance
+            need sample embedders checked into module list
+        """
+
         self.view_embedder = ViewEmbedder()
         self.location_embedder = LocationEmbeddingMaker(200, 200)
         self.mha = MultiHeadAttention(h=8, d_k=d_k, d_v=d_v, d_model=d_v)
@@ -103,6 +99,8 @@ class Guide(nn.Module):
                             dropout=0.1)
         self.proposal_layers = nn.ModuleList([UniformProposalLayer(hidden_size) for _ in range(3)])
         self.query_layers = nn.ModuleList([QueryLayer(hidden_size, n_queries, d_v) for _ in range(3)])
+        self.sample_embedders = nn.ModuleList([SampleEmbedder(16) for _ in self.sample_statements])
+        self.t_embedder = tEmbedder(sample_statements)
 
     def forward(self, observed_image=None):
         x = observed_image.view(1, 3, 200, 200)
@@ -126,7 +124,15 @@ class Guide(nn.Module):
 
         hidden, cell = self.initial_hidden, self.initial_cell
         for step in range(3):
-            queries = self.query_layers[step](hidden)
+            prev_sample_name = ""
+            current_sample_name = "bar_height"
+            t = torch.cat([self.tracker.one_hot_address(prev_sample_name),
+                           self.tracker.one_hot_distribution(prev_sample_name),
+                           self.tracker.one_hot_address(current_sample_name),
+                           self.tracker.one_hot_distribution(current_sample_name),
+                           self.tracker.get_sample_embedder(prev_sample_name)(prev_sample_value)], 1)
+
+            queries = self.tracker.query_layers[step](hidden, t)   # this should use sample_name not step
             lstm_input = self.mha(queries, x, x).view(1, 2048)
             lstm_output, (hidden, cell) = self.lstm(lstm_input, (hidden, cell))
 
@@ -138,9 +144,11 @@ class Guide(nn.Module):
                 certainty = certainty.cpu()
             print(mode.data.numpy()[0])
 
-            pyro.sample("bar_height_{}".format(step),
-                        proposal_dists.uniform_proposal,
-                        Variable(torch.Tensor([0])),
-                        Variable(torch.Tensor([10])),
-                        mode*10,    # TODO: move scaling somewhere else
-                        certainty)
+            prev_sample_value = pyro.sample(sample_name,
+                                            proposal_dists.uniform_proposal,
+                                            Variable(torch.Tensor([0])),
+                                            Variable(torch.Tensor([10])),
+                                            mode*10,    # TODO: move scaling somewhere else
+                                            certainty)
+
+            prev_sample_name = sample_name
