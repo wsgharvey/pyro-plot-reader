@@ -58,57 +58,54 @@ class SampleEmbedder(nn.Module):
         return self.fcn2(F.relu(self.fcn1(x)))
 
 
-class QueryLayer(nn.Module):
-    def __init__(self, t_dim, hidden_size, n_queries, d_k):
-        super(QueryLayer, self).__init__()
-        self.n_queries = n_queries
-        self.d_k = d_k
-        self.fcn1 = nn.Linear(t_dim+hidden_size, n_queries*d_k)
-        self.fcn2 = nn.Linear(n_queries*d_k, n_queries*d_k)
-
-    def forward(self, t, prev_hidden):
-        t = t.view(1, -1)
-        prev_hidden = prev_hidden.view(1, -1)
-        x = torch.cat((t, prev_hidden), 1)
-        x = self.fcn2(F.relu(self.fcn1(x)))
-        x = x.view(self.n_queries, self.d_k)
-        return x
-
-
 class Guide(nn.Module):
-    def __init__(self, d_k=64, d_v=128, n_queries=16, hidden_size=2048, lstm_layers=1):
+    def __init__(self,
+                 d_k=64,
+                 d_v=128,
+                 n_queries=16,
+                 hidden_size=2048,
+                 lstm_layers=1,
+                 smp_emb_dim=32,
+                 n_attention_queries=20,
+                 n_attention_heads=8,
+                 lstm_dropout=lstm_dropout):
         super(Guide, self).__init__()
+
+        self.HYPERPARAMS = ["d_k": d_k,
+                            "d_v": d_v,
+                            "n_queries": n_queries,
+                            "hidden_size": hidden_size,
+                            "lstm_layers": lstm_layers,
+                            "smp_emb_dim": smp_emb_dim,
+                            "n_attention_queries": n_attention_queries,
+                            "n_attention_heads": n_attention_heads,
+                            "lstm_dropout": lstm_dropout]
+
         sample_statements = {"bar_height": {"instances": 3,
-                                            "dist": proposal_dists.UniformProposalLayer)}
-        self.tracker = SampleStatementContainer(sample_statements)
-        """
-        need to be able to:
-            access sample embedder for each address
-            access proposal layer for each instance
-            need sample embedders checked into module list
-        """
+                                            "dist": proposal_dists.UniformProposalLayer}}
+        self.tracker = SampleStatementContainer(sample_statements,
+                                                self.HYPERPARAMS)
 
         self.view_embedder = ViewEmbedder()
         self.location_embedder = LocationEmbeddingMaker(200, 200)
-        self.mha = MultiHeadAttention(h=8, d_k=d_k, d_v=d_v, d_model=d_v)
+        self.mha = MultiHeadAttention(h=n_attention_heads, d_k=d_k, d_v=d_v, d_model=d_v)
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
         self.initial_cell = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
         self.lstm = nn.LSTM(input_size=n_queries*d_v,
                             hidden_size=hidden_size,
                             num_layers=lstm_layers,
-                            dropout=0.1)
-        self.proposal_layers = nn.ModuleList([UniformProposalLayer(hidden_size) for _ in range(3)])
-        self.query_layers = nn.ModuleList([QueryLayer(hidden_size, n_queries, d_v) for _ in range(3)])
-        self.sample_embedders = nn.ModuleList([SampleEmbedder(16) for _ in self.sample_statements])
-        self.t_embedder = tEmbedder(sample_statements)
+                            dropout=lstm_dropout)
 
     def forward(self, observed_image=None):
         x = observed_image.view(1, 3, 200, 200)
 
+        """ should put this inside the loop """
         pyro.sample("num_bars",
                     dist.categorical,
                     ps=Variable(torch.Tensor(np.array([0., 0., 0., 1., 0., 0.]))))
+        """"""
 
+        """ this bit should probably be moved """
         # find and embed each seperate location
         views = (x[:, :, 10*j:10*(j+2), 10*i:10*(i+2)].clone() for i in range(19) for j in range(19))
         view_embeddings = [self.view_embedder(view) for view in views]
@@ -121,6 +118,7 @@ class Guide(nn.Module):
             location_embeddings = [emb.cuda() for emb in location_embeddings]
 
         x = torch.cat(view_embeddings, 0) + torch.cat(location_embeddings, 0)
+        """"""
 
         hidden, cell = self.initial_hidden, self.initial_cell
         for step in range(3):

@@ -9,16 +9,16 @@ import pyro.infer.csis.proposal_dists as proposal_dists
 import numpy as np
 
 
-def proposal_layer(dist_type):
+def proposal_layer(dist_type, input_dim, **kwargs):  # take in arguments and initialise it inside this function ?
     """
     :dist: a Pyro distribution class
     returns a proposal layer appropriate for `dist`
     """
     if dist == dist.uniform:
-        return UniformProposalLayer
+        return UniformProposalLayer(input_dim)
     if dist == dist.categorical:
-        # FUCK ITS UNCLEAR HOW MANY CATEGORIES THERE ARE
-        pass
+        return CategoricalProposalLayer(input_dim,
+                                        **kwargs)
 
 
 class ProposalLayer(nn.Module):
@@ -40,3 +40,17 @@ class UniformProposalLayer(ProposalLayer):
         modes = nn.Sigmoid()(modes)
         certainties = nn.Softplus()(certainties)
         return modes, certainties
+
+
+class CategoricalProposalLayer(ProposalLayer):
+    def __init__(self, input_dim, n_categories):
+        super(UniformProposalLayer, self).__init__()
+        self.fcn1 = nn.Linear(input_dim, input_dim)
+        self.fcn2 = nn.Linear(input_dim, n_categories)
+
+    def forward(self, x):
+        x = x.view(1, -1)
+        x = self.fcn2(F.relu(self.fcn1(x)))
+        x = nn.Softplus()(x)
+        x = x.view(-1)
+        return x
