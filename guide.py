@@ -68,10 +68,10 @@ class Guide(nn.Module):
                  smp_emb_dim=32,
                  n_attention_queries=20,
                  n_attention_heads=8,
-                 lstm_dropout=lstm_dropout):
+                 lstm_dropout=0.1):
         super(Guide, self).__init__()
 
-        self.HYPERPARAMS = ["d_k": d_k,
+        self.HYPERPARAMS = {"d_k": d_k,
                             "d_v": d_v,
                             "n_queries": n_queries,
                             "hidden_size": hidden_size,
@@ -79,10 +79,10 @@ class Guide(nn.Module):
                             "smp_emb_dim": smp_emb_dim,
                             "n_attention_queries": n_attention_queries,
                             "n_attention_heads": n_attention_heads,
-                            "lstm_dropout": lstm_dropout]
+                            "lstm_dropout": lstm_dropout}
 
         sample_statements = {"bar_height": {"instances": 3,
-                                            "dist": proposal_dists.UniformProposalLayer}}
+                                            "dist": dist.uniform}}
         self.administrator = Administrator(sample_statements,
                                            self.HYPERPARAMS)
 
@@ -91,7 +91,7 @@ class Guide(nn.Module):
         self.mha = MultiHeadAttention(h=n_attention_heads, d_k=d_k, d_v=d_v, d_model=d_v)
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
         self.initial_cell = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
-        self.lstm = nn.LSTM(input_size=n_queries*d_v,
+        self.lstm = nn.LSTM(input_size=n_queries*d_v + self.administrator.t_dim,
                             hidden_size=hidden_size,
                             num_layers=lstm_layers,
                             dropout=lstm_dropout)
@@ -124,15 +124,16 @@ class Guide(nn.Module):
         hidden, cell = self.initial_hidden, self.initial_cell
         for step in range(3):
             current_sample_name = "bar_height"
-            t = administrator.t(prev_sample_name,
-                                current_sample_name,
-                                prev_sample_value)
+            t = self.administrator.t(prev_sample_name,
+                                     current_sample_name,
+                                     prev_sample_value)
 
-            queries = self.tracker.query_layers[step](hidden, t)   # this should use sample_name not step
-            lstm_input = self.mha(queries, x, x).view(1, 2048)
+            queries = self.administrator.get_query_layer(current_sample_name, step)(hidden, t)   # this should use sample_name not step
+            attention_output = self.mha(queries, x, x).view(1, 2048)
+            lstm_input = torch.cat([attention_output, t], 1)
             lstm_output, (hidden, cell) = self.lstm(lstm_input, (hidden, cell))
 
-            modes, certainties = self.proposal_layers[step](lstm_output)
+            modes, certainties = self.administrator.get_proposal_layer(current_sample_name, step)(lstm_output)
             mode, certainty = modes[0], certainties[0]
 
             if isinstance(mode, torch.cuda.FloatTensor):

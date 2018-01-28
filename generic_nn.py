@@ -26,60 +26,60 @@ class Administrator(nn.Module):
                         "dist": dist.uniform},
          "colour": {"instances": 1,
                     "dist": dist.categorical,
-                    "n_categories": 5}}     # these special arguments are required for some dists
+                    "output_dim": 5}}     # output_dim is required if not 1
 
         """
         self.sample_statements = OrderedDict(sample_statements)
-        self.dists = list(set([address["dist"] for address in sample_statements]))
-        t_dim = HYPERPARAMS["embedding_size"] + 2*len(self.sample_statements) + 2*len(self.dists)
+        self.dists = list(set([address["dist"] for address in sample_statements.values()]))
+        self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists)
 
-        self.proposal_layers = nn.ModuleList([nn.ModuleList([proposal_layer(addess["dist"],
-                                                                            address[n_categories] if n_categories in address else None)
+        self.proposal_layers = nn.ModuleList([nn.ModuleList([proposal_layer(address["dist"],
+                                                                            address["output_dim"] if "output_dim" in address else 1)
                                                              for _ in range(address["instances"])])
-                                              for address in self.sample_statements])
+                                              for address in self.sample_statements.values()])
 
-        self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(t_dim,
+        self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
                                                                      HYPERPARAMS["hidden_size"],
                                                                      HYPERPARAMS["n_queries"],
                                                                      HYPERPARAMS["d_k"])
                                                           for _ in range(address["instances"])])
-                                           for address in self.sample_statements])
+                                           for address in self.sample_statements.values()])
 
         self.sample_embedders = nn.ModuleList([nn.ModuleList([SampleEmbedder(1,                              # TODO: shouldn't always be 1
                                                                              HYPERPARAMS["smp_emb_dim"])
-                                                              for _ in range address["instances"]])
-                                               for address in self.sample_statements])
+                                                              for _ in range(address["instances"])])
+                                               for address in self.sample_statements.values()])
 
         self.first_sample_embedding = nn.Parameter(torch.normal(torch.zeros(1, HYPERPARAMS["smp_emb_dim"]), 1))
 
-    def _get_address_index(address):
+    def _get_address_index(self, address):
         return list(self.sample_statements.keys()).index(address)
 
-    def get_proposal_layer(address, instance):
+    def get_proposal_layer(self, address, instance):
         address_index = self._get_address_index(address)
         return self.proposal_layers[address_index][instance]
 
-    def get_sample_embedder(address, instance):
+    def get_sample_embedder(self, address, instance):
         address_index = self._get_address_index(address)
         return self.sample_embedders[address_index][instance]
 
-    def get_query_layer(address, instance):
+    def get_query_layer(self, address, instance):
         address_index = self._get_address_index(address)
         return self.query_layers[address_index][instance]
 
-    def one_hot_address(address):
+    def one_hot_address(self, address):
         one_hot = Variable(torch.zeros(1, len(self.sample_statements)))
         address_index = self._get_address_index(address)
-        one_hot[0, address_no] = 1
+        one_hot[0, address_index] = 1
         return one_hot
 
-    def one_hot_distribution(address):
+    def one_hot_distribution(self, address):
         one_hot = Variable(torch.zeros(1, len(self.dists)))
         dist_index = self.dists.index(self.sample_statements[address]["dist"])
         one_hot[0, dist_index] = 1
         return one_hot
 
-    def t(prev_sample_name, current_sample_name, prev_sample_value):
+    def t(self, prev_sample_name, current_sample_name, prev_sample_value):
         """
         returns an embedding of current and previous sample statement names and
         distributions and the previously sampled value (a.k.a. t)
@@ -102,6 +102,7 @@ class Administrator(nn.Module):
 # TODO: move SampleEmbedder and QueryLayer
 class SampleEmbedder(nn.Module):
     def __init__(self, input_dim, output_dim):
+        super(SampleEmbedder, self).__init__()
         self.fcn = nn.Linear(input_dim, output_dim)
 
     def forward(self, x):
