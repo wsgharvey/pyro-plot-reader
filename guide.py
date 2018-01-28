@@ -11,7 +11,7 @@ import pyro.infer.csis.proposal_dists as proposal_dists
 import numpy as np
 
 from attention import LocationEmbeddingMaker, MultiHeadAttention
-from generic_nn import SampleStatementContainer
+from generic_nn import Administrator
 
 
 class ViewEmbedder(nn.Module):
@@ -83,8 +83,8 @@ class Guide(nn.Module):
 
         sample_statements = {"bar_height": {"instances": 3,
                                             "dist": proposal_dists.UniformProposalLayer}}
-        self.tracker = SampleStatementContainer(sample_statements,
-                                                self.HYPERPARAMS)
+        self.administrator = Administrator(sample_statements,
+                                           self.HYPERPARAMS)
 
         self.view_embedder = ViewEmbedder()
         self.location_embedder = LocationEmbeddingMaker(200, 200)
@@ -120,15 +120,13 @@ class Guide(nn.Module):
         x = torch.cat(view_embeddings, 0) + torch.cat(location_embeddings, 0)
         """"""
 
+        prev_sample_name, prev_sample_value = None, None
         hidden, cell = self.initial_hidden, self.initial_cell
         for step in range(3):
-            prev_sample_name = ""
             current_sample_name = "bar_height"
-            t = torch.cat([self.tracker.one_hot_address(prev_sample_name),
-                           self.tracker.one_hot_distribution(prev_sample_name),
-                           self.tracker.one_hot_address(current_sample_name),
-                           self.tracker.one_hot_distribution(current_sample_name),
-                           self.tracker.get_sample_embedder(prev_sample_name)(prev_sample_value)], 1)
+            t = administrator.t(prev_sample_name,
+                                current_sample_name,
+                                prev_sample_value)
 
             queries = self.tracker.query_layers[step](hidden, t)   # this should use sample_name not step
             lstm_input = self.mha(queries, x, x).view(1, 2048)

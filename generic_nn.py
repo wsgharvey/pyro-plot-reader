@@ -18,6 +18,8 @@ class Administrator(nn.Module):
     def __init__(self, sample_statements, HYPERPARAMS):
         super(Administrator, self).__init__()
         """
+        TODO: consider making it simple to change which layers are shared (e.g. sharing proposal layers between instances)
+
         example `sample_statements`:
 
         {"bar_height": {"instances": 3,
@@ -43,9 +45,12 @@ class Administrator(nn.Module):
                                                           for _ in range(address["instances"])])
                                            for address in self.sample_statements])
 
-        self.sample_embedders = nn.ModuleList([SampleEmbedder(1,    # TODO: shouldn't always be 1
-                                                              HYPERPARAMS["smp_emb_dim"])
+        self.sample_embedders = nn.ModuleList([nn.ModuleList([SampleEmbedder(1,                              # TODO: shouldn't always be 1
+                                                                             HYPERPARAMS["smp_emb_dim"])
+                                                              for _ in range address["instances"]])
                                                for address in self.sample_statements])
+
+        self.first_sample_embedding = nn.Parameter(torch.normal(torch.zeros(1, HYPERPARAMS["smp_emb_dim"]), 1))
 
     def _get_address_index(address):
         return list(self.sample_statements.keys()).index(address)
@@ -54,9 +59,13 @@ class Administrator(nn.Module):
         address_index = self._get_address_index(address)
         return self.proposal_layers[address_index][instance]
 
-    def get_sample_embedder(address):
-        index = self._get_address_index(address)
-        return self.sample_embedders[index]
+    def get_sample_embedder(address, instance):
+        address_index = self._get_address_index(address)
+        return self.sample_embedders[address_index][instance]
+
+    def get_query_layer(address, instance):
+        address_index = self._get_address_index(address)
+        return self.query_layers[address_index][instance]
 
     def one_hot_address(address):
         one_hot = Variable(torch.zeros(1, len(self.sample_statements)))
@@ -70,16 +79,23 @@ class Administrator(nn.Module):
         one_hot[0, dist_index] = 1
         return one_hot
 
-    def make_t(prev_sample_name, current_sample_name, prev_sample_value):
+    def t(prev_sample_name, current_sample_name, prev_sample_value):
         """
         returns an embedding of current and previous sample statement names and
         distributions and the previously sampled value (a.k.a. t)
         """
-        t = torch.cat([self.one_hot_address(prev_sample_name),
-                       self.one_hot_distribution(prev_sample_name),
-                       self.one_hot_address(current_sample_name),
-                       self.one_hot_distribution(current_sample_name),
-                       self.get_sample_embedder(prev_sample_name)(prev_sample_value)], 1)
+        if prev_sample_name is None:
+            t = torch.cat([Variable(torch.zeros(1, len(self.sample_statements))),
+                           Variable(torch.zeros(1, len(self.dists))),
+                           self.one_hot_address(current_sample_name),
+                           self.one_hot_distribution(current_sample_name),
+                           self.first_sample_embedding], 1)
+        else:
+            t = torch.cat([self.one_hot_address(prev_sample_name),
+                           self.one_hot_distribution(prev_sample_name),
+                           self.one_hot_address(current_sample_name),
+                           self.one_hot_distribution(current_sample_name),
+                           self.get_sample_embedder(prev_sample_name)(prev_sample_value)], 1)
         return t
 
 
