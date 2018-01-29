@@ -62,6 +62,7 @@ class Guide(nn.Module):
     def __init__(self,
                  d_k=64,
                  d_v=128,
+                 d_model=128,
                  n_queries=16,
                  hidden_size=2048,
                  lstm_layers=1,
@@ -73,6 +74,7 @@ class Guide(nn.Module):
 
         self.HYPERPARAMS = {"d_k": d_k,
                             "d_v": d_v,
+                            "d_model": d_model,
                             "n_queries": n_queries,
                             "hidden_size": hidden_size,
                             "lstm_layers": lstm_layers,
@@ -88,7 +90,7 @@ class Guide(nn.Module):
 
         self.view_embedder = ViewEmbedder()
         self.location_embedder = LocationEmbeddingMaker(200, 200)
-        self.mha = MultiHeadAttention(h=n_attention_heads, d_k=d_k, d_v=d_v, d_model=d_v)
+        self.mha = MultiHeadAttention(h=n_attention_heads, d_k=d_k, d_v=d_v, d_model=d_model)   # TODO: get rid of d_model?
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
         self.initial_cell = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
         self.lstm = nn.LSTM(input_size=n_queries*d_v + self.administrator.t_dim,
@@ -120,13 +122,16 @@ class Guide(nn.Module):
         x = torch.cat(view_embeddings, 0) + torch.cat(location_embeddings, 0)
         """"""
 
-        prev_sample_name, prev_sample_value = None, None
+        prev_sample_name = None
+        prev_sample_value = None
+        prev_instance = None
         hidden, cell = self.initial_hidden, self.initial_cell
         for step in range(3):
             current_sample_name = "bar_height"
             t = self.administrator.t(prev_sample_name,
                                      current_sample_name,
-                                     prev_sample_value)
+                                     prev_sample_value,
+                                     prev_instance)
 
             queries = self.administrator.get_query_layer(current_sample_name, step)(hidden, t)   # this should use sample_name not step
             attention_output = self.mha(queries, x, x).view(1, 2048)
@@ -141,11 +146,12 @@ class Guide(nn.Module):
                 certainty = certainty.cpu()
             print(mode.data.numpy()[0])
 
-            prev_sample_value = pyro.sample(sample_name,
+            prev_sample_value = pyro.sample("{}_{}".format(current_sample_name, step),
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
                                             Variable(torch.Tensor([10])),
                                             mode*10,    # TODO: move scaling somewhere else
                                             certainty)
 
-            prev_sample_name = sample_name
+            prev_sample_name = current_sample_name
+            prev_instance = step

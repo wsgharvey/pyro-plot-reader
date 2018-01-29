@@ -14,9 +14,9 @@ def proposal_layer(dist_type, input_dim, *args):  # take in arguments and initia
     :dist: a Pyro distribution class
     returns a proposal layer appropriate for `dist`
     """
-    if dist == dist.uniform:
+    if dist_type == dist.uniform:
         return UniformProposalLayer(input_dim)
-    if dist == dist.categorical:
+    if dist_type == dist.categorical:
         return CategoricalProposalLayer(input_dim, *args)
 
 
@@ -28,8 +28,9 @@ class ProposalLayer(nn.Module):
 class UniformProposalLayer(ProposalLayer):
     def __init__(self, input_dim):
         super(UniformProposalLayer, self).__init__()
-        self.fcn1 = nn.Linear(input_dim, input_dim)
-        self.fcn2 = nn.Linear(input_dim, 2)
+        intermediate_dim = 2*int(input_dim**0.5)
+        self.fcn1 = nn.Linear(input_dim, intermediate_dim)
+        self.fcn2 = nn.Linear(intermediate_dim, 2)
 
     def forward(self, x):
         x = x.view(1, -1)

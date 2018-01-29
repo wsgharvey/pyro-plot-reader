@@ -34,6 +34,7 @@ class Administrator(nn.Module):
         self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists)
 
         self.proposal_layers = nn.ModuleList([nn.ModuleList([proposal_layer(address["dist"],
+                                                                            HYPERPARAMS["hidden_size"],
                                                                             address["output_dim"] if "output_dim" in address else 1)
                                                              for _ in range(address["instances"])])
                                               for address in self.sample_statements.values()])
@@ -41,7 +42,7 @@ class Administrator(nn.Module):
         self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
                                                                      HYPERPARAMS["hidden_size"],
                                                                      HYPERPARAMS["n_queries"],
-                                                                     HYPERPARAMS["d_k"])
+                                                                     HYPERPARAMS["d_model"])
                                                           for _ in range(address["instances"])])
                                            for address in self.sample_statements.values()])
 
@@ -57,6 +58,7 @@ class Administrator(nn.Module):
 
     def get_proposal_layer(self, address, instance):
         address_index = self._get_address_index(address)
+        print(address_index, instance)
         return self.proposal_layers[address_index][instance]
 
     def get_sample_embedder(self, address, instance):
@@ -79,7 +81,7 @@ class Administrator(nn.Module):
         one_hot[0, dist_index] = 1
         return one_hot
 
-    def t(self, prev_sample_name, current_sample_name, prev_sample_value):
+    def t(self, prev_sample_name, current_sample_name, prev_sample_value, prev_instance):
         """
         returns an embedding of current and previous sample statement names and
         distributions and the previously sampled value (a.k.a. t)
@@ -95,7 +97,7 @@ class Administrator(nn.Module):
                            self.one_hot_distribution(prev_sample_name),
                            self.one_hot_address(current_sample_name),
                            self.one_hot_distribution(current_sample_name),
-                           self.get_sample_embedder(prev_sample_name)(prev_sample_value)], 1)
+                           self.get_sample_embedder(prev_sample_name, prev_instance)(prev_sample_value)], 1)
         return t
 
 
@@ -111,17 +113,17 @@ class SampleEmbedder(nn.Module):
 
 
 class QueryLayer(nn.Module):
-    def __init__(self, t_dim, hidden_size, n_queries, d_k):
+    def __init__(self, t_dim, hidden_size, n_queries, d_model):
         super(QueryLayer, self).__init__()
         self.n_queries = n_queries
-        self.d_k = d_k
-        self.fcn1 = nn.Linear(t_dim+hidden_size, n_queries*d_k)
-        self.fcn2 = nn.Linear(n_queries*d_k, n_queries*d_k)
+        self.d_model = d_model
+        self.fcn1 = nn.Linear(t_dim+hidden_size, n_queries*d_model)
+        self.fcn2 = nn.Linear(n_queries*d_model, n_queries*d_model)
 
     def forward(self, t, prev_hidden):
         t = t.view(1, -1)
         prev_hidden = prev_hidden.view(1, -1)
         x = torch.cat((t, prev_hidden), 1)
         x = self.fcn2(F.relu(self.fcn1(x)))
-        x = x.view(self.n_queries, self.d_k)
+        x = x.view(self.n_queries, self.d_model)
         return x
