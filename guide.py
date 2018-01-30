@@ -69,8 +69,12 @@ class Guide(nn.Module):
                  smp_emb_dim=32,
                  n_attention_queries=20,
                  n_attention_heads=8,
-                 lstm_dropout=0.1,
-                 cuda=False):
+                 lstm_dropout=0.1, 
+                 cuda=False,
+                 share_smp_embedder=False,
+                 share_qry_layer=False,
+                 share_prop_layer=False):
+
         super(Guide, self).__init__()
 
         self.HYPERPARAMS = {"d_k": d_k,
@@ -83,8 +87,12 @@ class Guide(nn.Module):
                             "n_attention_queries": n_attention_queries,
                             "n_attention_heads": n_attention_heads,
                             "lstm_dropout": lstm_dropout,
-                            "CUDA": cuda}
-        self.CUDA = cuda 
+                            "CUDA": cuda, 
+                            "share_smp_embedder": share_smp_embedder,
+                            "share_qry_layer": share_qry_layer,
+                            "share_prop_layer": share_prop_layer}
+        self.CUDA = cuda
+
         sample_statements = {"bar_height": {"instances": 3,
                                             "dist": dist.uniform}}
         self.administrator = Administrator(sample_statements,
