@@ -29,15 +29,22 @@ class Administrator(nn.Module):
                     "output_dim": 5}}     # output_dim is required if not 1
 
         """
+        self.HYPERPARAMS = HYPERPARAMS
         self.sample_statements = OrderedDict(sample_statements)
         self.dists = list(set([address["dist"] for address in sample_statements.values()]))
         self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists)
 
-        self.proposal_layers = nn.ModuleList([nn.ModuleList([proposal_layer(address["dist"],
-                                                                            HYPERPARAMS["hidden_size"],
-                                                                            address["output_dim"] if "output_dim" in address else 1)
-                                                             for _ in range(address["instances"])])
-                                              for address in self.sample_statements.values()])
+        if HYPERPARAMS["share_prop_layer"]:         # TODO: do this fot sample embedder and query layers
+            self.proposal_layers = nn.ModuleList([proposal_layer(address["dist"],
+                                                                 HYPERPARAMS["hidden_size"],
+                                                                 address["output_dim"] if "output_dim" in address else 1)
+                                                  for address in self.sample_statements.values()])
+        else:
+            self.proposal_layers = nn.ModuleList([nn.ModuleList([proposal_layer(address["dist"],
+                                                                                HYPERPARAMS["hidden_size"],
+                                                                                address["output_dim"] if "output_dim" in address else 1)
+                                                                 for _ in range(address["instances"])])
+                                                  for address in self.sample_statements.values()])
 
         self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
                                                                      HYPERPARAMS["hidden_size"],
@@ -58,8 +65,10 @@ class Administrator(nn.Module):
 
     def get_proposal_layer(self, address, instance):
         address_index = self._get_address_index(address)
-        print(address_index, instance)
-        return self.proposal_layers[address_index][instance]
+        if self.HYPERPARAMS["share_prop_layer"]:
+            return self.proposal_layers[address_index]
+        else:
+            return self.proposal_layers[address_index][instance]
 
     def get_sample_embedder(self, address, instance):
         address_index = self._get_address_index(address)
