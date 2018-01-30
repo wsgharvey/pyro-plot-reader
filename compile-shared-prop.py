@@ -11,15 +11,16 @@ from file_paths import ARTIFACT_PATH, COMPILE_LOG_PATH
 from model import model
 from guide import Guide
 
-NEW_ARTIFACT = False
+NEW_ARTIFACT = True
 N_STEPS = 3000
 CUDA = True
 
 torch.manual_seed(0)
 
-guide = Guide(cuda=CUDA)
+guide = Guide(cuda=CUDA,
+             share_prop_layer=True)
 if not NEW_ARTIFACT:
-    guide.load_state_dict(torch.load(ARTIFACT_PATH))
+    guide.load_state_dict(torch.load(ARTIFACT_PATH[:-3]+"-2.pt"))
 if CUDA:
     guide.cuda()
 
@@ -33,7 +34,7 @@ csis.set_compiler_args(num_particles=8)
 
 csis.compile(optim, num_steps=N_STEPS, cuda=CUDA)
 
-torch.save(guide.state_dict(), ARTIFACT_PATH)
+torch.save(guide.state_dict(), ARTIFACT_PATH[:-3]+"-2.pt")
 
 log = csis.get_compile_log()
 mode = 'w' if NEW_ARTIFACT else 'a'
