@@ -96,13 +96,13 @@ class Administrator(nn.Module):
             return self.query_layers[address_index][instance]
 
     def one_hot_address(self, address):
-        one_hot = Variable(torch.zeros(1, len(self.sample_statements)))
+        one_hot = Variable(torch.zeros(1, len(self.sample_statements))).cuda()
         address_index = self._get_address_index(address)
         one_hot[0, address_index] = 1
         return one_hot
 
     def one_hot_distribution(self, address):
-        one_hot = Variable(torch.zeros(1, len(self.dists)))
+        one_hot = Variable(torch.zeros(1, len(self.dists))).cuda()
         dist_index = self.dists.index(self.sample_statements[address]["dist"])
         one_hot[0, dist_index] = 1
         return one_hot
@@ -113,8 +113,8 @@ class Administrator(nn.Module):
         distributions and the previously sampled value (a.k.a. t)
         """
         if prev_sample_name is None:
-            t = torch.cat([Variable(torch.zeros(1, len(self.sample_statements))),
-                           Variable(torch.zeros(1, len(self.dists))),
+            t = torch.cat([Variable(torch.zeros(1, len(self.sample_statements))).cuda(),
+                           Variable(torch.zeros(1, len(self.dists))).cuda(),
                            self.one_hot_address(current_sample_name),
                            self.one_hot_distribution(current_sample_name),
                            self.first_sample_embedding], 1)
@@ -131,7 +131,7 @@ class Administrator(nn.Module):
 class SampleEmbedder(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(SampleEmbedder, self).__init__()
-        self.fcn = nn.Linear(input_dim, output_dim)
+        self.fcn = nn.Linear(input_dim, output_dim) 
 
     def forward(self, x):
         x = x.view(1, -1)

@@ -69,10 +69,12 @@ class Guide(nn.Module):
                  smp_emb_dim=32,
                  n_attention_queries=20,
                  n_attention_heads=8,
-                 lstm_dropout=0.1,
+                 lstm_dropout=0.1, 
+                 cuda=False,
                  share_smp_embedder=False,
                  share_qry_layer=False,
                  share_prop_layer=False):
+
         super(Guide, self).__init__()
 
         self.HYPERPARAMS = {"d_k": d_k,
@@ -85,9 +87,11 @@ class Guide(nn.Module):
                             "n_attention_queries": n_attention_queries,
                             "n_attention_heads": n_attention_heads,
                             "lstm_dropout": lstm_dropout,
+                            "CUDA": cuda, 
                             "share_smp_embedder": share_smp_embedder,
                             "share_qry_layer": share_qry_layer,
                             "share_prop_layer": share_prop_layer}
+        self.CUDA = cuda
 
         sample_statements = {"bar_height": {"instances": 3,
                                             "dist": dist.uniform}}
@@ -141,13 +145,12 @@ class Guide(nn.Module):
 
             queries = self.administrator.get_query_layer(current_sample_name, step)(hidden, t)   # this should use sample_name not step
             attention_output = self.mha(queries, x, x).view(1, 2048)
-            lstm_input = torch.cat([attention_output, t], 1)
+            lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
             lstm_output, (hidden, cell) = self.lstm(lstm_input, (hidden, cell))
 
             modes, certainties = self.administrator.get_proposal_layer(current_sample_name, step)(lstm_output)
             mode, certainty = modes[0], certainties[0]
-
-            if isinstance(mode, torch.cuda.FloatTensor):
+            if self.CUDA:
                 mode = mode.cpu()
                 certainty = certainty.cpu()
             print(mode.data.numpy()[0])
@@ -158,6 +161,7 @@ class Guide(nn.Module):
                                             Variable(torch.Tensor([10])),
                                             mode*10,    # TODO: move scaling somewhere else
                                             certainty)
-
+            if self.CUDA:
+                prev_sample_value = prev_sample_value.cuda()
             prev_sample_name = current_sample_name
             prev_instance = step
