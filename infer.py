@@ -31,7 +31,7 @@ def expected_val(weighted_traces, attribute):
     return att_sum/weight_sum
 
 
-guide = Guide()
+guide = Guide(share_prop_layer=True)
 guide.load_state_dict(torch.load(ARTIFACT_PATH))
 
 csis = infer.CSIS(model=model,

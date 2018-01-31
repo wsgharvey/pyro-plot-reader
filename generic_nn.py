@@ -34,7 +34,7 @@ class Administrator(nn.Module):
         self.dists = list(set([address["dist"] for address in sample_statements.values()]))
         self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists)
 
-        if HYPERPARAMS["share_prop_layer"]:         # TODO: do this fot sample embedder and query layers
+        if HYPERPARAMS["share_prop_layer"]:
             self.proposal_layers = nn.ModuleList([proposal_layer(address["dist"],
                                                                  HYPERPARAMS["hidden_size"],
                                                                  address["output_dim"] if "output_dim" in address else 1)
@@ -46,17 +46,28 @@ class Administrator(nn.Module):
                                                                  for _ in range(address["instances"])])
                                                   for address in self.sample_statements.values()])
 
-        self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
-                                                                     HYPERPARAMS["hidden_size"],
-                                                                     HYPERPARAMS["n_queries"],
-                                                                     HYPERPARAMS["d_model"])
-                                                          for _ in range(address["instances"])])
-                                           for address in self.sample_statements.values()])
-
-        self.sample_embedders = nn.ModuleList([nn.ModuleList([SampleEmbedder(1,                              # TODO: shouldn't always be 1
-                                                                             HYPERPARAMS["smp_emb_dim"])
+        if HYPERPARAMS["share_qry_layer"]:
+            self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
+                                                                         HYPERPARAMS["hidden_size"],
+                                                                         HYPERPARAMS["n_queries"],
+                                                                         HYPERPARAMS["d_model"])
                                                               for _ in range(address["instances"])])
                                                for address in self.sample_statements.values()])
+        else:
+            self.query_layers = nn.ModuleList([QueryLayer(self.t_dim,
+                                                          HYPERPARAMS["hidden_size"],
+                                                          HYPERPARAMS["n_queries"],
+                                                          HYPERPARAMS["d_model"])
+                                               for address in self.sample_statements.values()])
+
+        if HYPERPARAMS["share_smp_embedder"]:
+            self.sample_embedders = nn.ModuleList([SampleEmbedder(1, HYPERPARAMS["smp_emb_dim"])
+                                                   for address in self.sample_statements.values()])
+        else:
+            self.sample_embedders = nn.ModuleList([nn.ModuleList([SampleEmbedder(1,                              # TODO: shouldn't always be 1
+                                                                                 HYPERPARAMS["smp_emb_dim"])
+                                                                  for _ in range(address["instances"])])
+                                                   for address in self.sample_statements.values()])
 
         self.first_sample_embedding = nn.Parameter(torch.normal(torch.zeros(1, HYPERPARAMS["smp_emb_dim"]), 1))
 
@@ -72,11 +83,17 @@ class Administrator(nn.Module):
 
     def get_sample_embedder(self, address, instance):
         address_index = self._get_address_index(address)
-        return self.sample_embedders[address_index][instance]
+        if self.HYPERPARAMS["share_smp_embedder"]:
+            return self.sample_embedders[address_index]
+        else:
+            return self.sample_embedders[address_index][instance]
 
     def get_query_layer(self, address, instance):
         address_index = self._get_address_index(address)
-        return self.query_layers[address_index][instance]
+        if self.HYPERPARAMS["share_qry_layer"]:
+            return self.query_layers[address_index]
+        else:
+            return self.query_layers[address_index][instance]
 
     def one_hot_address(self, address):
         one_hot = Variable(torch.zeros(1, len(self.sample_statements)))
