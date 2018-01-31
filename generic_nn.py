@@ -47,17 +47,17 @@ class Administrator(nn.Module):
                                                   for address in self.sample_statements.values()])
 
         if HYPERPARAMS["share_qry_layer"]:
+            self.query_layers = nn.ModuleList([QueryLayer(self.t_dim,
+                                               HYPERPARAMS["hidden_size"],
+                                               HYPERPARAMS["n_queries"],
+                                               HYPERPARAMS["d_model"])
+                                              for address in self.sample_statements.values()])
+        else:
             self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
                                                                          HYPERPARAMS["hidden_size"],
                                                                          HYPERPARAMS["n_queries"],
                                                                          HYPERPARAMS["d_model"])
                                                               for _ in range(address["instances"])])
-                                               for address in self.sample_statements.values()])
-        else:
-            self.query_layers = nn.ModuleList([QueryLayer(self.t_dim,
-                                                          HYPERPARAMS["hidden_size"],
-                                                          HYPERPARAMS["n_queries"],
-                                                          HYPERPARAMS["d_model"])
                                                for address in self.sample_statements.values()])
 
         if HYPERPARAMS["share_smp_embedder"]:
@@ -131,7 +131,7 @@ class Administrator(nn.Module):
 class SampleEmbedder(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(SampleEmbedder, self).__init__()
-        self.fcn = nn.Linear(input_dim, output_dim) 
+        self.fcn = nn.Linear(input_dim, output_dim)
 
     def forward(self, x):
         x = x.view(1, -1)
