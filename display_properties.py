@@ -9,7 +9,7 @@ parser.add_argument("name", help="Name of artifact top be compiled", nargs=1, ty
 
 args = parser.parse_args()
 
-artifact = PersistentArtifact.load(args.name)
+artifact = PersistentArtifact.load(args.name[0])
 
 print("guide_kwargs:\n", artifact.guide_kwargs)
 print("compiler_kwargs:\n", artifact.compiler_kwargs)

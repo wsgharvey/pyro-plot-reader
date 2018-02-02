@@ -38,7 +38,7 @@ class PersistentArtifact(object):
     def compile(self, N_STEPS, CUDA=False):
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = CUDA
-        guide = Guide(**kwargs)
+        guide = Guide(**guide_kwargs)
 
         try:
             guide.load_state_dict(torch.load(self.weights_path))

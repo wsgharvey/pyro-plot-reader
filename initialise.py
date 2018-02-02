@@ -22,7 +22,7 @@ guide_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.g)}
 compiler_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.c)}
 optimiser_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.o)}
 
-a = PersistentArtifact(args.name,
+a = PersistentArtifact(args.name[0],
                        guide_kwargs=guide_kwargs,
                        compiler_kwargs=compiler_kwargs,
                        optimiser_kwargs=optimiser_kwargs)
