@@ -96,13 +96,17 @@ class Administrator(nn.Module):
             return self.query_layers[address_index][instance]
 
     def one_hot_address(self, address):
-        one_hot = Variable(torch.zeros(1, len(self.sample_statements))).cuda()
+        one_hot = Variable(torch.zeros(1, len(self.sample_statements)))
+        if self.HYPERPARAMS["CUDA"]:
+            one_hot = one_hot.cuda()
         address_index = self._get_address_index(address)
         one_hot[0, address_index] = 1
         return one_hot
 
     def one_hot_distribution(self, address):
-        one_hot = Variable(torch.zeros(1, len(self.dists))).cuda()
+        one_hot = Variable(torch.zeros(1, len(self.dists)))
+        if self.HYPERPARAMS["CUDA"]:
+            one_hot = one_hot.cuda()
         dist_index = self.dists.index(self.sample_statements[address]["dist"])
         one_hot[0, dist_index] = 1
         return one_hot
@@ -113,8 +117,13 @@ class Administrator(nn.Module):
         distributions and the previously sampled value (a.k.a. t)
         """
         if prev_sample_name is None:
-            t = torch.cat([Variable(torch.zeros(1, len(self.sample_statements))).cuda(),
-                           Variable(torch.zeros(1, len(self.dists))).cuda(),
+            no_address = Variable(torch.zeros(1, len(self.sample_statements)))
+            no_distribution = Variable(torch.zeros(1, len(self.dists)))
+            if self.HYPERPARAMS["CUDA"]:
+                no_address = no_address.cuda()
+                no_distribution = no_distribution.cuda()
+            t = torch.cat([no_address,
+                           no_distribution,
                            self.one_hot_address(current_sample_name),
                            self.one_hot_distribution(current_sample_name),
                            self.first_sample_embedding], 1)

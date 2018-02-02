@@ -1,43 +1,15 @@
-import torch
-from torch.autograd import Variable
-import torchvision.datasets as dset
-import torchvision.transforms as transforms
+"""
+Compile an artifact saved as a PersistentArtifact
+"""
+from artifact import PersistentArtifact
+import argparse
 
-import pyro
-from pyro.infer import CSIS
-import pyro.distributions as dist
+parser = argparse.ArgumentParser("compile artifact")
+parser.add_argument("name", help="Name of artifact top be compiled", nargs=1, type=str)
+parser.add_argument("steps", help="Number of steps for compilation", nargs=1, type=int)
+parser.add_argument("cuda", help="Whether to use GPU", nargs=1, type=bool)
 
-from file_paths import ARTIFACT_PATH, COMPILE_LOG_PATH
-from model import model
-from guide import Guide
+args = parser.parse_args()
 
-NEW_ARTIFACT = False
-N_STEPS = 3000
-CUDA = True
-
-torch.manual_seed(0)
-
-guide = Guide(cuda=CUDA)
-if not NEW_ARTIFACT:
-    guide.load_state_dict(torch.load(ARTIFACT_PATH))
-if CUDA:
-    guide.cuda()
-
-optim = torch.optim.Adam(guide.parameters(), lr=1e-4)
-
-csis = CSIS(model=model,
-            guide=guide,
-            num_samples=1)
-csis.set_model_args()
-csis.set_compiler_args(num_particles=8)
-
-csis.compile(optim, num_steps=N_STEPS, cuda=CUDA)
-
-torch.save(guide.state_dict(), ARTIFACT_PATH)
-
-log = csis.get_compile_log()
-mode = 'w' if NEW_ARTIFACT else 'a'
-with open(COMPILE_LOG_PATH, mode) as f:
-    losses = log["validation"]
-    string = "\n".join(map(",".join, map(lambda x: map(str, x), losses))) + "\n"
-    f.write(string)
+artifact = PersistentArtifact.load(args.name)
+artifact.compile(args.steps, args.cuda)
