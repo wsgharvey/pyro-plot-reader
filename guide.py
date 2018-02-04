@@ -94,7 +94,7 @@ class Guide(nn.Module):
                             "share_smp_embedder": share_smp_embedder,
                             "share_qry_layer": share_qry_layer,
                             "share_prop_layer": share_prop_layer}
-        self.cuda = cuda
+        self.CUDA = cuda
 
         self.sample_statements = {"num_bars": {"instances": 1,
                                                "dist": dist.categorical,
@@ -174,7 +174,7 @@ class Guide(nn.Module):
 
     def forward(self, observed_image=None):
         x = observed_image.view(1, 3, 200, 200)
-        if self.cuda:
+        if self.CUDA:
             x = x.cuda()
 
         if self.collect_history:
@@ -208,7 +208,7 @@ class Guide(nn.Module):
 
             modes, certainties = self.time_step(current_sample_name, prev_sample_value)
             mode, certainty = modes[0]*10, certainties[0]
-            if self.cuda:
+            if self.CUDA:
                 mode = mode.cpu()
                 certainty = certainty.cpu()
             print(mode.data.numpy()[0])
