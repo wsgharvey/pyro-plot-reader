@@ -29,13 +29,28 @@ class DotProductAttention(nn.Module):
     def __init__(self):
         super(DotProductAttention, self).__init__()
 
-    def forward(self, Q, K, V):
+    def forward(self, Q, K, V, return_graphic=False):
         weights = torch.mm(Q, K.transpose(0, 1))    # K transpose?
         d_k = K.size()[0]
         weights /= d_k**0.5
         weights = torch.nn.Softmax()(weights)
+        result = torch.mm(weights, V)
 
-        return torch.mm(weights, V)
+        if not return_graphic:
+            return result
+        else:
+            graphic = np.zeros((20, 20))
+            weights = weights.data
+            if isinstance(weights, torch.cuda.FloatTensor):
+                weights.cpu()
+            weights = weights.numpy()
+            for query in weights:
+                for i in range(19):
+                    for j in range(19):
+                        graphic[j*1:j*1+2, i*1:i*1+2] += query[i*19+j]
+            graphic = np.repeat(graphic, 10, axis=0)
+            graphic = np.repeat(graphic, 10, axis=1)
+            return result, graphic
 
 
 class MultiHeadAttention(nn.Module):
@@ -52,7 +67,7 @@ class MultiHeadAttention(nn.Module):
 
         self.dpa = DotProductAttention()
 
-    def forward(self, Q, K, V):
+    def forward(self, Q, K, V, attention_tracker=None):
         """
         :Q: matrix of queries - n_locations x d_model
         :K: matrix of queries - n_locations x d_model
@@ -60,12 +75,27 @@ class MultiHeadAttention(nn.Module):
 
         :returns: n_locations x d_model
         """
+        if attention_tracker is not None:
+            graphic = np.zeros((200, 200))
+
         head_outputs = []
         for i in range(self.h):
             Q_emb = self.fcn_qs[i](Q)
             K_emb = self.fcn_ks[i](K)
             V_emb = self.fcn_vs[i](V)
-            head_outputs.append(self.dpa(Q_emb, K_emb, V_emb))
+            if attention_tracker is None:
+                head_outputs.append(self.dpa(Q_emb, K_emb, V_emb))
+            else:
+                head_output, head_locations = self.dpa(Q_emb, K_emb, V_emb,
+                                                       return_graphic=True)
+                head_outputs.append(head_output)
+                graphic += head_locations
+
         x = torch.cat(head_outputs, 1)
         x = self.fcn_out(x)
+
+        if attention_tracker is not None:
+            graphic = graphic * 255 / np.amax(graphic)
+            attention_tracker.add_graphic(graphic)
+
         return x

@@ -44,13 +44,13 @@ class UniformProposalLayer(ProposalLayer):
 
 class CategoricalProposalLayer(ProposalLayer):
     def __init__(self, input_dim, n_categories):
-        super(UniformProposalLayer, self).__init__()
+        super(CategoricalProposalLayer, self).__init__()
         self.fcn1 = nn.Linear(input_dim, int((input_dim*n_categories)**0.5))
         self.fcn2 = nn.Linear(int((input_dim*n_categories)**0.5), n_categories)
 
     def forward(self, x):
         x = x.view(1, -1)
         x = self.fcn2(F.relu(self.fcn1(x)))
-        x = nn.Softplus()(x)
+        x = nn.Softmax()(x)
         x = x.view(-1)
         return x

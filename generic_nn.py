@@ -32,7 +32,8 @@ class Administrator(nn.Module):
         self.HYPERPARAMS = HYPERPARAMS
         self.sample_statements = OrderedDict(sample_statements)
         self.dists = list(set([address["dist"] for address in sample_statements.values()]))
-        self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists)
+        self.max_instances = max(v["instances"] for v in sample_statements.values())
+        self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists) + self.max_instances
 
         if HYPERPARAMS["share_prop_layer"]:
             self.proposal_layers = nn.ModuleList([proposal_layer(address["dist"],
@@ -111,11 +112,20 @@ class Administrator(nn.Module):
         one_hot[0, dist_index] = 1
         return one_hot
 
-    def t(self, prev_sample_name, current_sample_name, prev_sample_value, prev_instance):
+    def one_hot_instance(self, instance):
+        one_hot = Variable(torch.zeros(1, self.max_instances))
+        if self.HYPERPARAMS["CUDA"]:
+            one_hot = one_hot.cuda()
+        one_hot[0, instance] = 1
+        return one_hot
+
+    def t(self, current_instance, current_sample_name, prev_instance, prev_sample_name, prev_sample_value):
         """
         returns an embedding of current and previous sample statement names and
         distributions and the previously sampled value (a.k.a. t)
         """
+        if self.HYPERPARAMS["CUDA"]:
+            prev_sample_value = prev_sample_value.cuda()
         if prev_sample_name is None:
             no_address = Variable(torch.zeros(1, len(self.sample_statements)))
             no_distribution = Variable(torch.zeros(1, len(self.dists)))
@@ -126,12 +136,14 @@ class Administrator(nn.Module):
                            no_distribution,
                            self.one_hot_address(current_sample_name),
                            self.one_hot_distribution(current_sample_name),
+                           self.one_hot_instance(current_instance),
                            self.first_sample_embedding], 1)
         else:
             t = torch.cat([self.one_hot_address(prev_sample_name),
                            self.one_hot_distribution(prev_sample_name),
                            self.one_hot_address(current_sample_name),
                            self.one_hot_distribution(current_sample_name),
+                           self.one_hot_instance(current_instance),
                            self.get_sample_embedder(prev_sample_name, prev_instance)(prev_sample_value)], 1)
         return t
 

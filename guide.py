@@ -12,6 +12,7 @@ import numpy as np
 
 from attention import LocationEmbeddingMaker, MultiHeadAttention
 from generic_nn import Administrator
+from graphics import AttentionTracker
 
 
 class ViewEmbedder(nn.Module):
@@ -69,11 +70,13 @@ class Guide(nn.Module):
                  smp_emb_dim=32,
                  n_attention_queries=20,
                  n_attention_heads=8,
-                 lstm_dropout=0.1, 
+                 lstm_dropout=0.1,
                  cuda=False,
                  share_smp_embedder=False,
                  share_qry_layer=False,
-                 share_prop_layer=False):
+                 share_prop_layer=False,
+                 attention_graphics_path=None,
+                 collect_history=False):
 
         super(Guide, self).__init__()
 
@@ -87,15 +90,18 @@ class Guide(nn.Module):
                             "n_attention_queries": n_attention_queries,
                             "n_attention_heads": n_attention_heads,
                             "lstm_dropout": lstm_dropout,
-                            "CUDA": cuda, 
+                            "CUDA": cuda,
                             "share_smp_embedder": share_smp_embedder,
                             "share_qry_layer": share_qry_layer,
                             "share_prop_layer": share_prop_layer}
-        self.CUDA = cuda
+        self.cuda = cuda
 
-        sample_statements = {"bar_height": {"instances": 3,
-                                            "dist": dist.uniform}}
-        self.administrator = Administrator(sample_statements,
+        self.sample_statements = {"num_bars": {"instances": 1,
+                                               "dist": dist.categorical,
+                                               "n_categories": 5},
+                                  "bar_height": {"instances": 3,
+                                                 "dist": dist.uniform}}
+        self.administrator = Administrator(self.sample_statements,
                                            self.HYPERPARAMS)
 
         self.view_embedder = ViewEmbedder()
@@ -108,8 +114,67 @@ class Guide(nn.Module):
                             num_layers=lstm_layers,
                             dropout=lstm_dropout)
 
+        if attention_graphics_path is not None:
+            self.attention_tracker = AttentionTracker(attention_graphics_path)
+        else:
+            self.attention_tracker = None
+
+        self.collect_history = collect_history
+        if collect_history is True:
+            self.history = []
+
+        if cuda:
+            self.cuda()
+
+    def init_lstm(self, input_embeddings):
+        """
+        run at the start of each trace
+        intialises LSTM hidden state etc.
+        """
+        self.hidden, self.cell = self.initial_hidden, self.initial_cell
+        self.instances_dict = {key: 0 for key in self.sample_statements}
+        self.x = input_embeddings
+        self.prev_sample_name = None
+        self.prev_instance = None
+
+    def time_step(self, current_sample_name, prev_sample_value):
+        """
+        perform one LSTM time step
+        returns proposal parameters for `current_sample_name`
+        """
+        current_instance = self.instances_dict[current_sample_name]
+
+        t = self.administrator.t(current_instance,
+                                 current_sample_name,
+                                 self.prev_instance,
+                                 self.prev_sample_name,
+                                 prev_sample_value)
+        queries = self.administrator.get_query_layer(current_sample_name, current_instance)(self.hidden, t)   # this should use sample_name not step
+        if self.attention_tracker is None:
+            attention_output = self.mha(queries, self.x, self.x).view(1, 2048)
+        else:
+            attention_output = self.mha(queries, self.x, self.x, self.attention_tracker).view(1, 2048)
+        lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
+
+        lstm_output, (self.hidden, self.cell) = self.lstm(lstm_input, (self.hidden, self.cell))
+        proposal_params = self.administrator.get_proposal_layer(current_sample_name, current_instance)(lstm_output)
+
+        self.instances_dict[current_sample_name] += 1
+        self.prev_sample_name = current_sample_name
+        self.prev_instance = current_instance
+        if self.collect_history:
+            self.history[-1].append((current_sample_name,
+                                     lstm_output))
+
+        return proposal_params
+
     def forward(self, observed_image=None):
         x = observed_image.view(1, 3, 200, 200)
+        if self.cuda:
+            x = x.cuda()
+
+        if self.collect_history:
+            self.history.append([])
 
         """ should put this inside the loop """
         pyro.sample("num_bars",
@@ -132,25 +197,20 @@ class Guide(nn.Module):
         x = torch.cat(view_embeddings, 0) + torch.cat(location_embeddings, 0)
         """"""
 
-        prev_sample_name = None
-        prev_sample_value = None
-        prev_instance = None
-        hidden, cell = self.initial_hidden, self.initial_cell
-        for step in range(3):
-            current_sample_name = "bar_height"
-            t = self.administrator.t(prev_sample_name,
-                                     current_sample_name,
-                                     prev_sample_value,
-                                     prev_instance)
+        self.init_lstm(x)
 
-            queries = self.administrator.get_query_layer(current_sample_name, step)(hidden, t)   # this should use sample_name not step
-            attention_output = self.mha(queries, x, x).view(1, 2048)
-            lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
-            lstm_output, (hidden, cell) = self.lstm(lstm_input, (hidden, cell))
+        ps = self.time_step("num_bars", None)
+        num_bars = pyro.sample("num_bars",
+                                proposal_dists.categorical_proposal,
+                                ps=ps)
 
-            modes, certainties = self.administrator.get_proposal_layer(current_sample_name, step)(lstm_output)
-            mode, certainty = modes[0], certainties[0]
-            if self.CUDA:
+        current_sample_name = "bar_height"
+        prev_sample_value = num_bars
+        for _ in range(num_bars):
+
+            modes, certainties = self.time_step(current_sample_name, prev_sample_value)
+            mode, certainty = modes[0]*10, certainties[0]
+            if self.cuda:
                 mode = mode.cpu()
                 certainty = certainty.cpu()
             print(mode.data.numpy()[0])
@@ -159,9 +219,12 @@ class Guide(nn.Module):
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
                                             Variable(torch.Tensor([10])),
-                                            mode*10,    # TODO: move scaling somewhere else
+                                            mode,
                                             certainty)
-            if self.CUDA:
-                prev_sample_value = prev_sample_value.cuda()
-            prev_sample_name = current_sample_name
-            prev_instance = step
+
+        self.attention_tracker.save_graphics()
+
+    def get_history(self):
+        if not self.collect_history:
+            raise Exception("collect_history is set to False")
+        return self.history
