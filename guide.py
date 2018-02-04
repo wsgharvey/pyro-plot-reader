@@ -198,6 +198,8 @@ class Guide(nn.Module):
         self.init_lstm(x)
 
         ps = self.time_step("num_bars", None)
+        if self.CUDA:
+            ps = ps.cpu()
         num_bars = pyro.sample("num_bars",
                                 proposal_dists.categorical_proposal,
                                 ps=ps)
