@@ -42,7 +42,7 @@ class DotProductAttention(nn.Module):
             graphic = np.zeros((20, 20))
             weights = weights.data
             if isinstance(weights, torch.cuda.FloatTensor):
-                weights.cpu()
+                weights = weights.cpu()
             weights = weights.numpy()
             for query in weights:
                 for i in range(19):

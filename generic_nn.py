@@ -124,8 +124,6 @@ class Administrator(nn.Module):
         returns an embedding of current and previous sample statement names and
         distributions and the previously sampled value (a.k.a. t)
         """
-        if self.HYPERPARAMS["CUDA"]:
-            prev_sample_value = prev_sample_value.cuda()
         if prev_sample_name is None:
             no_address = Variable(torch.zeros(1, len(self.sample_statements)))
             no_distribution = Variable(torch.zeros(1, len(self.dists)))
@@ -139,6 +137,8 @@ class Administrator(nn.Module):
                            self.one_hot_instance(current_instance),
                            self.first_sample_embedding], 1)
         else:
+            if self.HYPERPARAMS["CUDA"]:
+                prev_sample_value = prev_sample_value.cuda()
             t = torch.cat([self.one_hot_address(prev_sample_name),
                            self.one_hot_distribution(prev_sample_name),
                            self.one_hot_address(current_sample_name),

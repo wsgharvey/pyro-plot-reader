@@ -107,6 +107,7 @@ class PersistentArtifact(object):
 
             for trace, log_weight in weighted_traces:
                 pass
+            img_no += 1
 
         inference_log = guide.get_history()
         pickle.dump(inference_log, open(self.inference_log_path, 'wb'))

@@ -99,7 +99,7 @@ class Guide(nn.Module):
         self.sample_statements = {"num_bars": {"instances": 1,
                                                "dist": dist.categorical,
                                                "output_dim": 5},
-                                  "bar_height": {"instances": 3,
+                                  "bar_height": {"instances": 5,
                                                  "dist": dist.uniform}}
         self.administrator = Administrator(self.sample_statements,
                                            self.HYPERPARAMS)
@@ -198,6 +198,8 @@ class Guide(nn.Module):
         self.init_lstm(x)
 
         ps = self.time_step("num_bars", None)
+        if self.CUDA:
+            ps = ps.cpu()
         num_bars = pyro.sample("num_bars",
                                 proposal_dists.categorical_proposal,
                                 ps=ps)
