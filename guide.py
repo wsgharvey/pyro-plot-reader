@@ -99,7 +99,7 @@ class Guide(nn.Module):
         self.sample_statements = {"num_bars": {"instances": 1,
                                                "dist": dist.categorical,
                                                "output_dim": 5},
-                                  "bar_height": {"instances": 3,
+                                  "bar_height": {"instances": 5,
                                                  "dist": dist.uniform}}
         self.administrator = Administrator(self.sample_statements,
                                            self.HYPERPARAMS)
