@@ -98,7 +98,7 @@ class Guide(nn.Module):
 
         self.sample_statements = {"num_bars": {"instances": 1,
                                                "dist": dist.categorical,
-                                               "n_categories": 5},
+                                               "output_dim": 5},
                                   "bar_height": {"instances": 3,
                                                  "dist": dist.uniform}}
         self.administrator = Administrator(self.sample_statements,
@@ -132,7 +132,7 @@ class Guide(nn.Module):
         intialises LSTM hidden state etc.
         """
         self.hidden, self.cell = self.initial_hidden, self.initial_cell
-        self.instances_dict = {key: 0 for key in self.sample_statements}
+        self.instances_dict = {key: -1 for key in self.sample_statements}   # maybe messy to start from -1
         self.x = input_embeddings
         self.prev_sample_name = None
         self.prev_instance = None
@@ -142,6 +142,7 @@ class Guide(nn.Module):
         perform one LSTM time step
         returns proposal parameters for `current_sample_name`
         """
+        self.instances_dict[current_sample_name] += 1
         current_instance = self.instances_dict[current_sample_name]
 
         t = self.administrator.t(current_instance,
@@ -156,10 +157,13 @@ class Guide(nn.Module):
             attention_output = self.mha(queries, self.x, self.x, self.attention_tracker).view(1, 2048)
         lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
 
-        lstm_output, (self.hidden, self.cell) = self.lstm(lstm_input, (self.hidden, self.cell))
+        lstm_output, (hidden, cell) = self.lstm(lstm_input, (self.hidden, self.cell))
+        del self.hidden
+        del self.cell
+        self.hidden, self.cell = hidden, cell
+
         proposal_params = self.administrator.get_proposal_layer(current_sample_name, current_instance)(lstm_output)
 
-        self.instances_dict[current_sample_name] += 1
         self.prev_sample_name = current_sample_name
         self.prev_instance = current_instance
         if self.collect_history:
@@ -175,12 +179,6 @@ class Guide(nn.Module):
 
         if self.collect_history:
             self.history.append([])
-
-        """ should put this inside the loop """
-        pyro.sample("num_bars",
-                    dist.categorical,
-                    ps=Variable(torch.Tensor(np.array([0., 0., 0., 1., 0., 0.]))))
-        """"""
 
         """ this bit should probably be moved """
         # find and embed each seperate location
@@ -205,7 +203,7 @@ class Guide(nn.Module):
                                 ps=ps)
 
         current_sample_name = "bar_height"
-        prev_sample_value = num_bars
+        prev_sample_value = num_bars.type(torch.FloatTensor)
         for _ in range(num_bars):
 
             modes, certainties = self.time_step(current_sample_name, prev_sample_value)
@@ -215,14 +213,15 @@ class Guide(nn.Module):
                 certainty = certainty.cpu()
             print(mode.data.numpy()[0])
 
-            prev_sample_value = pyro.sample("{}_{}".format(current_sample_name, step),
+            prev_sample_value = pyro.sample("{}_{}".format(current_sample_name, self.instances_dict[current_sample_name]),
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
                                             Variable(torch.Tensor([10])),
                                             mode,
                                             certainty)
 
-        self.attention_tracker.save_graphics()
+        if self.attention_tracker is not None:
+            self.attention_tracker.save_graphics()
 
     def get_history(self):
         if not self.collect_history:

@@ -23,7 +23,7 @@ def model(observed_image=Variable(torch.zeros(200, 200))):
 
     num_bars = pyro.sample("num_bars",
                            dist.categorical,
-                           ps=Variable(torch.Tensor(np.array([0., 0., 0., 1., 0., 0.]))))
+                           ps=Variable(torch.Tensor(np.array([0., 0., 0., 1., 0.]))))
     num_bars = num_bars.data.numpy()[0]
 
     bar_heights = []
