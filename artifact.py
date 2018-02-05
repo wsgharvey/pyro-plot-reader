@@ -88,7 +88,7 @@ class PersistentArtifact(object):
             test_folder = "{}/test".format(DATASET_PATH)
 
         subprocess.check_call(["rm", "-f",
-                               self.paths["attention_graphics"]])
+                               "{}/*".format(self.paths["attention_graphics"])])
 
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = cuda

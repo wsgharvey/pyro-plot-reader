@@ -17,6 +17,8 @@ if args.g is None:
     args.g = []
 if args.c is None:
     args.c = []
+if args.o is None:
+    args.o = []
 
 guide_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.g)}
 compiler_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.c)}
