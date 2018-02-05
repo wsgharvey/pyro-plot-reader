@@ -37,16 +37,16 @@ class PersistentArtifact(object):
 
         self.save()
 
-    def _init_paths(self):tensor
+    def _init_paths(self):
         self.directory = "{}/{}".format(ARTIFACT_FOLDER, self.name)
         if os.path.exists(self.directory):
             raise Exception("Folder already exists at {}".format(self.directory))
         else:
             os.makedirs(self.directory)
 
-        weights_path = "{}/weights.pt".format(directory)
-        inference_log_path = "{}/infer_log.p".format(directory)
-        attention_graphics_path = "{}/attention_graphics".format(directory)
+        weights_path = "{}/weights.pt".format(self.directory)
+        inference_log_path = "{}/infer_log.p".format(self.directory)
+        attention_graphics_path = "{}/attention_graphics".format(self.directory)
         os.makedirs(attention_graphics_path)
 
         self.paths = {"weights": weights_path,
