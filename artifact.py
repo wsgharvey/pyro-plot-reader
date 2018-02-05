@@ -15,6 +15,7 @@ import numpy as np
 
 import pickle
 import os
+import subprocess
 
 
 class PersistentArtifact(object):
@@ -29,18 +30,27 @@ class PersistentArtifact(object):
         self.optimiser_kwargs = optimiser_kwargs
         self.validation_losses = []
 
-        self.directory = "{}/{}".format(ARTIFACT_FOLDER, name)
+        self._init_paths()
+
+        self.training_steps = 0
+
+        self.save()
+
+    def _init_paths(self):
+        self.directory = "{}/{}".format(ARTIFACT_FOLDER, self.name)
         if os.path.exists(self.directory):
             raise Exception("Folder already exists at {}".format(self.directory))
         else:
             os.makedirs(self.directory)
 
-        self.weights_path = "{}/weights.pt".format(self.directory)
-        self.inference_log_path = "{}/infer_log.p".format(self.directory)
+        weights_path = "{}/weights.pt".format(directory)
+        inference_log_path = "{}/infer_log.p".format(directory)
+        attention_graphics_path = "{}/attention_graphics".format(directory)
+        os.makedirs(attention_graphics_path)
 
-        self.training_steps = 0
-
-        self.save()
+        self.paths = {"weights": weights_path,
+                      "infer_log": inference_log_path,
+                      "attention_graphics": attention_graphics_path}
 
     def compile(self, N_STEPS, CUDA=False):
         guide_kwargs = self.guide_kwargs.copy()
@@ -48,7 +58,7 @@ class PersistentArtifact(object):
         guide = Guide(**guide_kwargs)
 
         try:
-            guide.load_state_dict(torch.load(self.weights_path))
+            guide.load_state_dict(torch.load(self.paths["weights"]))
         except:
             pass
 
@@ -62,7 +72,7 @@ class PersistentArtifact(object):
 
         csis.compile(optim, num_steps=N_STEPS, cuda=CUDA)
 
-        torch.save(guide.state_dict(), self.weights_path)
+        torch.save(guide.state_dict(), self.paths["weights"])
 
         validation_log = csis.get_compile_log()["validation"]
         self.validation_losses.extend(validation_log)
@@ -76,13 +86,11 @@ class PersistentArtifact(object):
         if test_folder == "default":
             test_folder = "{}/test".format(DATASET_PATH)
 
-        attention_graphics_path = "{}/attention_graphics".format(self.directory)
-        if not os.path.exists(attention_graphics_path):
-            os.makedirs(attention_graphics_path)
+        # TODO: should clear attention_graphics folder here
 
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = cuda
-        guide_kwargs["attention_graphics_path"] = attention_graphics_path
+        guide_kwargs["attention_graphics_path"] = self.paths["attention_graphics"]
         guide_kwargs["collect_history"] = True
         guide = Guide(**guide_kwargs)
 
@@ -110,11 +118,22 @@ class PersistentArtifact(object):
             img_no += 1
 
         inference_log = guide.get_history()
-        pickle.dump(inference_log, open(self.inference_log_path, 'wb'))
+        pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
 
     def save(self):
         path = "{}/artifact.p".format(self.directory)
         pickle.dump(self, open(path, 'wb'))
+
+    def copy(self, new_name):
+        new = type(self)()
+        new.__dict__.update(self.__dict__)
+        new.name = new_name
+        new._init_paths()
+        for path_name in self.paths:
+            subprocess.check_call(["cp", "-3",
+                                   self.paths[path_name],
+                                   new.paths[path_name]])
+        new.save()
 
     @staticmethod
     def load(name):
