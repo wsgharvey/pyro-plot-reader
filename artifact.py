@@ -95,6 +95,7 @@ class PersistentArtifact(object):
         guide_kwargs["attention_graphics_path"] = self.paths["attention_graphics"]
         guide_kwargs["collect_history"] = True
         guide = Guide(**guide_kwargs)
+        guide.load_state_dict(torch.load(self.paths["weights"]))
 
         csis = CSIS(model=model,
                     guide=guide,
