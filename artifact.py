@@ -9,7 +9,8 @@ from model import model
 from guide import Guide
 from file_paths import ARTIFACT_FOLDER, DATASET_PATH
 
-# these will be unneccessary one image processing is moved
+from helpers import image2variable
+
 from PIL import Image
 import numpy as np
 
@@ -36,7 +37,7 @@ class PersistentArtifact(object):
 
         self.save()
 
-    def _init_paths(self):
+    def _init_paths(self):tensor
         self.directory = "{}/{}".format(ARTIFACT_FOLDER, self.name)
         if os.path.exists(self.directory):
             raise Exception("Folder already exists at {}".format(self.directory))
@@ -86,7 +87,8 @@ class PersistentArtifact(object):
         if test_folder == "default":
             test_folder = "{}/test".format(DATASET_PATH)
 
-        # TODO: should clear attention_graphics folder here
+        subprocess.check_call(["rm", "-f",
+                               self.paths["attention_graphics"]])
 
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = cuda
@@ -101,21 +103,26 @@ class PersistentArtifact(object):
         marginal = Marginal(csis)
 
         img_no = 0
-        while True:
-            try:
-                image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
-            except OSError:
-                break
-            # TODO: move this image processing to helpers
-            image = np.array(image).astype(np.float32)
-            image = np.array([image[..., 0], image[..., 1], image[..., 2]])
-            image = Variable(torch.Tensor(image))
-
+        while os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
+            print("running inference no.", img_no)
+            image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
+            image = image2variable(image)
             weighted_traces = marginal.trace_dist._traces(observed_image=image)
-
             for trace, log_weight in weighted_traces:
                 pass
             img_no += 1
+
+        print("Improving attention graphics...")
+        while os.path.isfile("{}/{}.png".format(self.paths["attention_graphics"], img_no)):
+            img = Image.open("{}/graph_{}.png".format(test_folder, img_no))
+            att = Image.open("{}/{}.png".format(self.paths["attention_graphics"], img_no)).convert('L')
+            h, w, _ = np.asarray(img).shape
+            black = Image.new("RGB", (h, w))
+            black.paste(img, mask=att)
+            img = np.asarray(black).copy()
+            img *= int(255 / np.amax(img))
+            img = Image.fromarray(img)
+            img.save("{}/{}.png".format(self.paths["attention_graphics"], img_no))
 
         inference_log = guide.get_history()
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))

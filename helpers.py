@@ -26,6 +26,7 @@ def pix2inches(inches, dpi=100):
     return tuple(map(lambda x: x/dpi,
                      inches))
 
+
 def set_size_pixels(fig, size):
     """ returns figure with size set in pixels
         wraps matplotlib's set_size_inches
@@ -36,3 +37,9 @@ def set_size_pixels(fig, size):
 
     fig.set_size_inches(size)
     return fig
+
+
+def image2variable(image):
+    image = np.array(image).astype(np.float32)
+    image = np.array([image[..., 0], image[..., 1], image[..., 2]])
+    return Variable(torch.Tensor(image))
