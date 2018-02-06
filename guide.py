@@ -82,6 +82,7 @@ class Guide(nn.Module):
                  keys_use_loc=True,
                  vals_use_view=True,
                  vals_use_loc=True,
+                 max_simulated_translation=0,
                  random_colour=True,
                  random_bar_width=True,
                  random_line_colour=True,
@@ -107,7 +108,8 @@ class Guide(nn.Module):
                             "keys_use_view": keys_use_view,
                             "keys_use_loc": keys_use_loc,
                             "vals_use_view": vals_use_view,
-                            "vals_use_loc": vals_use_loc}
+                            "vals_use_loc": vals_use_loc,
+                            "max_simulated_translation": max_simulated_translation}
         self.CUDA = cuda
         self.random_colour = random_colour
         self.random_bar_width = random_bar_width
@@ -227,7 +229,9 @@ class Guide(nn.Module):
         view_embeddings = [self.view_embedder(view) for view in views]
 
         # add location embeddings
-        location_embeddings = [self.location_embedder.createLocationEmbedding(i, j)
+        x_offset = np.random.uniform(0, self.HYPERPARAMS["max_simulated_translation"])  # will be 0 by default
+        y_offset = np.random.uniform(0, self.HYPERPARAMS["max_simulated_translation"])  # will be 0 by default
+        location_embeddings = [self.location_embedder.createLocationEmbedding(i, j, x_offset=x_offset, y_offset=y_offset)
                                for i in range(0, 190, 10)
                                for j in range(0, 190, 10)]
         if isinstance(x.data, torch.cuda.FloatTensor):
