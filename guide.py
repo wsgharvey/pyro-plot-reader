@@ -269,6 +269,37 @@ class Guide(nn.Module):
                                                 Variable(torch.Tensor([1])),
                                                 mode,
                                                 certainty)
+        if self.random_bar_width:
+            modes, certainties = self.time_step("bar_width",
+                                                prev_sample_value)
+            mode, certainty = modes[0], certainties[0]
+            prev_sample_value = pyro.sample(colour,
+                                            proposal_dists.uniform_proposal,
+                                            Variable(torch.Tensor([0])),
+                                            Variable(torch.Tensor([1])),
+                                            mode,
+                                            certainty)
+        if self.random_line_colour:
+            for colour in ("red", "green", "blue"):
+                modes, certainties = self.time_step("line_{}".format(colour),
+                                                    prev_sample_value)
+                mode, certainty = modes[0], certainties[0]
+                prev_sample_value = pyro.sample(colour,
+                                                proposal_dists.uniform_proposal,
+                                                Variable(torch.Tensor([0])),
+                                                Variable(torch.Tensor([1])),
+                                                mode,
+                                                certainty)
+        if self.random_line_width:
+            modes, certainties = self.time_step("line_width",
+                                                prev_sample_value)
+            mode, certainty = modes[0], certainties[0]
+            prev_sample_value = pyro.sample(colour,
+                                            proposal_dists.uniform_proposal,
+                                            Variable(torch.Tensor([0])),
+                                            Variable(torch.Tensor([1])),
+                                            mode,
+                                            certainty)
 
         ps = self.time_step("num_bars",
                             prev_sample_value)

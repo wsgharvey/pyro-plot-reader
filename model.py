@@ -21,7 +21,7 @@ def model(observed_image=Variable(torch.zeros(200, 200)),
           random_line_colour=True,
           random_line_width=True):
     max_height = 10
-    max_line_width=2.5
+    max_line_width = 2.5
     height, width = 200, 200
 
     if random_line_width:
