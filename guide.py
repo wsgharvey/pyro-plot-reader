@@ -171,9 +171,9 @@ class Guide(nn.Module):
                                  prev_sample_value)
         queries = self.administrator.get_query_layer(current_sample_name, current_instance)(self.hidden, t)   # this should use sample_name not step
         if self.attention_tracker is None:
-            attention_output = self.mha(queries, self.x, self.x).view(1, 2048)
+            attention_output = self.mha(queries, self.x, self.x).view(1, -1)
         else:
-            attention_output = self.mha(queries, self.x, self.x, self.attention_tracker).view(1, 2048)
+            attention_output = self.mha(queries, self.x, self.x, self.attention_tracker).view(1, -1)
         lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
 
         lstm_output, (hidden, cell) = self.lstm(lstm_input, (self.hidden, self.cell))

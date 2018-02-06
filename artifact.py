@@ -53,9 +53,9 @@ class PersistentArtifact(object):
         else:
             os.makedirs(self.directory)
 
-        weights_path = "{}/weights.pt".format(directory)
-        inference_log_path = "{}/infer_log.p".format(directory)
-        attention_graphics_path = "{}/attention_graphics".format(directory)
+        weights_path = "{}/weights.pt".format(self.directory)
+        inference_log_path = "{}/infer_log.p".format(self.directory)
+        attention_graphics_path = "{}/attention_graphics".format(self.directory)
         os.makedirs(attention_graphics_path)
 
         self.paths = {"weights": weights_path,
@@ -106,6 +106,7 @@ class PersistentArtifact(object):
         guide_kwargs["attention_graphics_path"] = self.paths["attention_graphics"]
         guide_kwargs["collect_history"] = True
         guide = Guide(**guide_kwargs)
+        guide.load_state_dict(torch.load(self.paths["weights"]))
 
         csis = CSIS(model=model,
                     guide=guide,
