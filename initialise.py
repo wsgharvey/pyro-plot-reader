@@ -7,7 +7,9 @@ import argparse
 
 parser = argparse.ArgumentParser("initialise artifact")
 parser.add_argument("name", help="Descriptive name", nargs=1, type=str)
+parser.add_argument("-m", help="Arguments for running the model", nargs='*', type=str)
 parser.add_argument("-g", help="Arguments for initialising the guide", nargs='*', type=str)
+parser.add_argument("-mg", help="Arguments shared between the model and guide", nargs='*', type=str)
 parser.add_argument("-c", help="Arguments for compilation", nargs='*', type=str)
 parser.add_argument("-o", help="Optimiser arguments", nargs='*', type=str)
 

@@ -16,24 +16,28 @@ from graphics import AttentionTracker
 
 
 class ViewEmbedder(nn.Module):
-    def __init__(self):
+    """
+    embeds a 3x20x20 pixel region into a vector of size `output_dim`
+    """
+    def __init__(self, output_dim):
         super(ViewEmbedder, self).__init__()
-        self.conv1 = nn.Conv2d(3, 8, 3)
-        self.conv2 = nn.Conv2d(8, 16, 3)
-        self.conv3 = nn.Conv2d(16, 32, 3)
-        self.conv4 = nn.Conv2d(32, 32, 3)
-        self.conv5 = nn.Conv2d(32, 64, 3)
-        self.conv6 = nn.Conv2d(64, 64, 3)
-        self.conv7 = nn.Conv2d(64, 128, 3)
-        self.conv8 = nn.Conv2d(128, 128, 3)
-        self.conv9 = nn.Conv2d(128, 256, 3)
-        self.conv10 = nn.Conv2d(256, 128, 2)
+        self.output_dim = output_dim                        # 20x20
+        self.conv1 = nn.Conv2d(3, 8, 3)                     # 18x18
+        self.conv2 = nn.Conv2d(8, 8, 3)                     # 16x16
+        self.conv3 = nn.Conv2d(8, 16, 3)                    # 14x14
+        self.conv4 = nn.Conv2d(16, 16, 3)                   # 12x12
+        self.conv5 = nn.Conv2d(16, 16, 3)                   # 10x10
+        self.conv6 = nn.Conv2d(16, 32, 3)                   # 8x8
+        self.conv7 = nn.Conv2d(32, 64, 3)                   # 6x6
+        self.conv8 = nn.Conv2d(64, 64, 3)                   # 4x4
+        self.conv9 = nn.Conv2d(64, max(64, output_dim), 3)  # 2x2
+        self.conv10 = nn.Conv2d(256, output_dim, 2)         # 1x1
 
     def forward(self, x):
         x = x.view(1, 3, 20, 20)
         x = self.conv1(x)
         x = F.relu(self.conv2(x))
-        x = self.conv3(x)
+        x = F.relu(self.conv3(x))
         x = F.relu(self.conv4(x))
         x = F.relu(self.conv5(x))
         x = F.relu(self.conv6(x))
@@ -41,7 +45,7 @@ class ViewEmbedder(nn.Module):
         x = F.relu(self.conv8(x))
         x = F.relu(self.conv9(x))
         x = self.conv10(x)
-        x = x.view(1, 128)
+        x = x.view(1, self.output_dim)
         return x
 
 
@@ -62,8 +66,7 @@ class SampleEmbedder(nn.Module):
 class Guide(nn.Module):
     def __init__(self,
                  d_k=64,
-                 d_v=128,
-                 d_model=128,
+                 d_emb=128,
                  n_queries=16,
                  hidden_size=2048,
                  lstm_layers=1,
@@ -75,14 +78,18 @@ class Guide(nn.Module):
                  share_smp_embedder=False,
                  share_qry_layer=False,
                  share_prop_layer=False,
+                 keys_use_view=True,
+                 keys_use_loc=True,
+                 vals_use_view=True,
+                 vals_use_loc=True,
+                 random_colour=True,
                  attention_graphics_path=None,
                  collect_history=False):
 
         super(Guide, self).__init__()
 
         self.HYPERPARAMS = {"d_k": d_k,
-                            "d_v": d_v,
-                            "d_model": d_model,
+                            "d_emb": d_emb,
                             "n_queries": n_queries,
                             "hidden_size": hidden_size,
                             "lstm_layers": lstm_layers,
@@ -93,23 +100,35 @@ class Guide(nn.Module):
                             "CUDA": cuda,
                             "share_smp_embedder": share_smp_embedder,
                             "share_qry_layer": share_qry_layer,
-                            "share_prop_layer": share_prop_layer}
+                            "share_prop_layer": share_prop_layer,
+                            "keys_use_view": keys_use_view,
+                            "keys_use_loc": keys_use_loc,
+                            "vals_use_view": vals_use_view,
+                            "vals_use_loc": vals_use_loc}
         self.CUDA = cuda
+        self.random_colour
 
-        self.sample_statements = {"num_bars": {"instances": 1,
-                                               "dist": dist.categorical,
-                                               "output_dim": 5},
+        self.sample_statements = {"num_bars":   {"instances": 1,
+                                                 "dist": dist.categorical,
+                                                 "output_dim": 5},
                                   "bar_height": {"instances": 5,
                                                  "dist": dist.uniform}}
+        if random_colour:
+            colour_samples = {col: {"instances": 1,
+                                    "dist": dist.uniform}
+                              for col in ("red", "green", "blue")}
+            self.sample_statements.update(colour_samples)
+
         self.administrator = Administrator(self.sample_statements,
                                            self.HYPERPARAMS)
 
         self.view_embedder = ViewEmbedder()
+        self.big_picture_embedder = ViewEmbedder()
         self.location_embedder = LocationEmbeddingMaker(200, 200)
-        self.mha = MultiHeadAttention(h=n_attention_heads, d_k=d_k, d_v=d_v, d_model=d_model)   # TODO: get rid of d_model?
+        self.mha = MultiHeadAttention(h=n_attention_heads, d_k=d_k, d_v=d_emb, d_model=d_emb)
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
         self.initial_cell = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
-        self.lstm = nn.LSTM(input_size=n_queries*d_v + self.administrator.t_dim,
+        self.lstm = nn.LSTM(input_size=n_queries*d_emb + self.administrator.t_dim,
                             hidden_size=hidden_size,
                             num_layers=lstm_layers,
                             dropout=lstm_dropout)
@@ -170,6 +189,11 @@ class Guide(nn.Module):
             self.history[-1].append((current_sample_name,
                                      lstm_output))
 
+        if self.CUDA:
+            try:
+                proposal_params = proposal_params.cpu()
+            except AttributeError:
+                proposal_params = tuple(param.cpu() for param in proposal_params)
         return proposal_params
 
     def forward(self, observed_image=None):
@@ -192,30 +216,52 @@ class Guide(nn.Module):
         if isinstance(x.data, torch.cuda.FloatTensor):
             location_embeddings = [emb.cuda() for emb in location_embeddings]
 
-        x = torch.cat(view_embeddings, 0) + torch.cat(location_embeddings, 0)
+        view_embeddings = torch.cat(view_embeddings, 0)
+        location_embeddings = torch.cat(location_embeddings, 0)
+
+        keys = Variable(torch.zeros(view_embeddings.shape))
+        values = Variable(torch.zeros(view_embeddings.shape))
+        if self.HYPERPARAMS["keys_use_view"]:
+            keys += view_embeddings
+        if self.HYPERPARAMS["keys_use_loc"]:
+            keys += location_embeddings
+        if self.HYPERPARAMS["vals_use_view"]:
+            values += view_embeddings
+        if self.HYPERPARAMS["vals_use_loc"]:
+            values += location_embeddings
+        # low_res_img = nn.AvgPool2d(10)(observed_image.view(1, 3, 200, 200))
+        # full_pic_embedding = self.big_picture_embedder(low_res_img)
+        # x = torch.cat([view_embeddings, full_pic_embedding], 0)
         """"""
 
         self.init_lstm(x)
+        prev_sample_value = None
 
-        ps = self.time_step("num_bars", None)
-        if self.CUDA:
-            ps = ps.cpu()
+        if self.random_colour:
+            for colour in ("red", "green", "blue"):
+                modes, certainties = self.time_step(colour,
+                                                    prev_sample_value)
+                mode, certainty = modes[0], certainties[0]
+                prev_sample_value = pyro.sample(colour,
+                                                proposal_dists.uniform_proposal,
+                                                Variable(torch.Tensor([0])),
+                                                Variable(torch.Tensor([1])),
+                                                mode,
+                                                certainty)
+
+        ps = self.time_step("num_bars",
+                            prev_sample_value)
         num_bars = pyro.sample("num_bars",
                                 proposal_dists.categorical_proposal,
                                 ps=ps)
 
-        current_sample_name = "bar_height"
         prev_sample_value = num_bars.type(torch.FloatTensor)
         for _ in range(num_bars):
-
-            modes, certainties = self.time_step(current_sample_name, prev_sample_value)
+            modes, certainties = self.time_step("bar_height",
+                                                prev_sample_value)
             mode, certainty = modes[0]*10, certainties[0]
-            if self.CUDA:
-                mode = mode.cpu()
-                certainty = certainty.cpu()
             print(mode.data.numpy()[0])
-
-            prev_sample_value = pyro.sample("{}_{}".format(current_sample_name, self.instances_dict[current_sample_name]),
+            prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
                                             Variable(torch.Tensor([10])),

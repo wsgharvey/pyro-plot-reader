@@ -11,6 +11,7 @@ args = parser.parse_args()
 
 artifact = PersistentArtifact.load(args.name[0])
 
+print("model_kwargs:\n", artifact.model_kwargs)
 print("guide_kwargs:\n", artifact.guide_kwargs)
 print("compiler_kwargs:\n", artifact.compiler_kwargs)
 print("optimiser_kwargs:\n", artifact.optimiser_kwargs)

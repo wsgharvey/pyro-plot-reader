@@ -20,15 +20,24 @@ import subprocess
 
 
 class PersistentArtifact(object):
-    def __init__(self, name, guide_kwargs, compiler_kwargs, optimiser_kwargs):
+    def __init__(self, name,
+                 model_kwargs,
+                 guide_kwargs,
+                 model_and_guide_kwargs,
+                 compiler_kwargs,
+                 optimiser_kwargs):
         """
         this should only be run once - never upon reloading an old artifact
         as long as PersistentArtifact.load is used
         """
         self.name = name
+        self.model_kwargs = model_kwargs
+        self.model_kwargs.update(model_and_guide_kwargs)
         self.guide_kwargs = guide_kwargs
+        self.guide_kwargs.update(model_and_guide_kwargs)
         self.compiler_kwargs = compiler_kwargs
         self.optimiser_kwargs = optimiser_kwargs
+
         self.validation_losses = []
 
         self._init_paths()
@@ -37,7 +46,7 @@ class PersistentArtifact(object):
 
         self.save()
 
-    def _init_paths(self):tensor
+    def _init_paths(self):
         self.directory = "{}/{}".format(ARTIFACT_FOLDER, self.name)
         if os.path.exists(self.directory):
             raise Exception("Folder already exists at {}".format(self.directory))
@@ -68,8 +77,9 @@ class PersistentArtifact(object):
         csis = CSIS(model=model,
                     guide=guide,
                     num_samples=1)
-        csis.set_model_args()
+        csis.set_model_args(**model_kwargs)
         csis.set_compiler_args(**self.compiler_kwargs)
+        csis.iterations = self.training_steps
 
         csis.compile(optim, num_steps=N_STEPS, cuda=CUDA)
 
@@ -83,12 +93,13 @@ class PersistentArtifact(object):
 
     def make_plots(self,
                    test_folder="default",
+                   max_plots=np.inf:
                    cuda=False):
         if test_folder == "default":
             test_folder = "{}/test".format(DATASET_PATH)
 
         subprocess.check_call(["rm", "-f",
-                               self.paths["attention_graphics"]])
+                               "{}/*".format(self.paths["attention_graphics"])])
 
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = cuda
@@ -99,11 +110,11 @@ class PersistentArtifact(object):
         csis = CSIS(model=model,
                     guide=guide,
                     num_samples=1)
-        csis.set_model_args()
+        csis.set_model_args(**model_kwargs)
         marginal = Marginal(csis)
 
         img_no = 0
-        while os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
+        while img_no < max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
             print("running inference no.", img_no)
             image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
             image = image2variable(image)
@@ -125,6 +136,9 @@ class PersistentArtifact(object):
             img.save("{}/{}.png".format(self.paths["attention_graphics"], img_no))
 
         inference_log = guide.get_history()
+
+        # would be nice to be able to plot graphs with error bars (and we can)
+
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
 
     def save(self):
