@@ -83,6 +83,9 @@ class Guide(nn.Module):
                  vals_use_view=True,
                  vals_use_loc=True,
                  random_colour=True,
+                 random_bar_width=True,
+                 random_line_colour=True,
+                 random_line_width=True,
                  attention_graphics_path=None,
                  collect_history=False):
 
@@ -106,7 +109,10 @@ class Guide(nn.Module):
                             "vals_use_view": vals_use_view,
                             "vals_use_loc": vals_use_loc}
         self.CUDA = cuda
-        self.random_colour
+        self.random_colour = random_colour
+        self.random_bar_width = random_bar_width
+        self.random_line_colour = random_line_colour
+        self.random_line_width = random_line_width
 
         self.sample_statements = {"num_bars":   {"instances": 1,
                                                  "dist": dist.categorical,
@@ -118,6 +124,17 @@ class Guide(nn.Module):
                                     "dist": dist.uniform}
                               for col in ("red", "green", "blue")}
             self.sample_statements.update(colour_samples)
+        if random_bar_width:
+            self.sample_statements.update({"bar_width": {"instances": 1,
+                                                         "dist": dist.uniform}})
+        if random_line_colour:
+            colour_samples = {"line_{}".format(col): {"instances": 1,
+                                                      "dist": dist.uniform}
+                              for col in ("red", "green", "blue")}
+            self.sample_statements.update(colour_samples)
+        if random_line_width:
+            self.sample_statements.update({"line_width": {"instances": 1,
+                                                          "dist": dist.uniform}})
 
         self.administrator = Administrator(self.sample_statements,
                                            self.HYPERPARAMS)

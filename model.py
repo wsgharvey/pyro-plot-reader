@@ -16,17 +16,40 @@ import matplotlib.pyplot as plt
 
 
 def model(observed_image=Variable(torch.zeros(200, 200)),
-          random_colour=True):
-    """ generates a bar chart with a single bar
-    """
+          random_colour=True,
+          random_bar_width=True,
+          random_line_colour=True,
+          random_line_width=True):
     max_height = 10
+    max_line_width=2.5
     height, width = 200, 200
+
+    if random_line_width:
+        line_width = pyro.sample("line_width",
+                                 dist.uniform,
+                                 Variable(torch.Tensor([0])),
+                                 Variable(torch.Tensor([max_line_width]))).data.numpy()[0]
+
+    if random_line_colour:
+        line_rgb_colour = tuple(pyro.sample("line_{}".format(colour),
+                                       dist.uniform,
+                                       Variable(torch.Tensor([0])),
+                                       Variable(torch.Tensor([1]))).data.numpy()[0]
+                           for colour in ("red", "green", "blue"))
+    else:
+        line_rgb_colour = (0.2, 0.2, 0.8)
+
+    if random_bar_width:
+        bar_width = pyro.sample("bar_width",
+                                dist.uniform,
+                                Variable(torch.Tensor([0])),
+                                Variable(torch.Tensor([1]))).data.numpy()[0]
 
     if random_colour:
         rgb_colour = tuple(pyro.sample(colour,
                                        dist.uniform,
                                        Variable(torch.Tensor([0])),
-                                       Variable(torch.Tensor([1])))
+                                       Variable(torch.Tensor([1]))).data.numpy()[0]
                            for colour in ("red", "green", "blue"))
     else:
         rgb_colour = (0.2, 0.2, 0.8)
@@ -47,6 +70,10 @@ def model(observed_image=Variable(torch.zeros(200, 200)),
     fig, ax = plt.subplots()
     ax.bar(range(num_bars),
            bar_heights,
+           width=bar_width,
+           color=rgb_colour,
+           linewidth=line_width,
+           edgecolor=line_rgb_colour,
            label="Bar")
     ax.set_ylim(0, max_height)
 

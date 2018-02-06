@@ -7,6 +7,7 @@ import os
 
 from PIL import Image
 import numpy as np
+import torch
 
 
 def create_dataset(file_path,
@@ -46,6 +47,7 @@ if not os.path.exists("{}/test".format(DATASET_PATH)):
     os.makedirs("{}/test".format(DATASET_PATH))
 
 # Fill with data
+torch.manual_seed(0)
 create_dataset("{}/train".format(DATASET_PATH), 1000)
 create_dataset("{}/validation".format(DATASET_PATH), 100)
 create_dataset("{}/test".format(DATASET_PATH), 100)
