@@ -22,10 +22,10 @@ def create_dataset(file_path,
         targets.append(",".join(map(str, returned["bar_heights"])))
 
         img = returned["image"]
-        img = img.view(3, 200, 200)
+        img = img.view(3, 210, 210)
         img = img.data.numpy()
 
-        imgArray = np.zeros((200, 200, 3), 'uint8')
+        imgArray = np.zeros((210, 210, 3), 'uint8')
         imgArray[..., 0] = img[0]
         imgArray[..., 1] = img[1]
         imgArray[..., 2] = img[2]

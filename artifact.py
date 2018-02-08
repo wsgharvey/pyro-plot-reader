@@ -44,6 +44,9 @@ class PersistentArtifact(object):
 
         self.training_steps = 0
 
+        self.steps_at_last_make_plots = self.training_steps
+        self.steps_at_last_make_videos = self.training_steps
+
         self.save()
 
     def _init_paths(self):
@@ -56,11 +59,14 @@ class PersistentArtifact(object):
         weights_path = "{}/weights.pt".format(self.directory)
         inference_log_path = "{}/infer_log.p".format(self.directory)
         attention_graphics_path = "{}/attention_graphics".format(self.directory)
+        posterior_videos_path = "{}/posterior_videos".format(self.directory)
         os.makedirs(attention_graphics_path)
+        os.makedirs(posterior_videos_path)
 
         self.paths = {"weights": weights_path,
                       "infer_log": inference_log_path,
-                      "attention_graphics": attention_graphics_path}
+                      "attention_graphics": attention_graphics_path,
+                      "posterior_videos": posterior_videos_path}
 
     def compile(self, N_STEPS, CUDA=False):
         guide_kwargs = self.guide_kwargs.copy()
@@ -79,8 +85,14 @@ class PersistentArtifact(object):
                     num_samples=1)
         csis.set_model_args(**model_kwargs)
         csis.set_compiler_args(**self.compiler_kwargs)
-        csis.iterations = self.training_steps
 
+        # Force validation batch to be created with a certain random seed
+        rng_state = torch.get_rng_state()
+        torch.manual_seed(0)
+        csis._init_compiler()
+        torch.set_rng_state(rng_state)
+
+        csis.iterations = self.training_steps
         csis.compile(optim, num_steps=N_STEPS, cuda=CUDA)
 
         torch.save(guide.state_dict(), self.paths["weights"])
@@ -100,6 +112,7 @@ class PersistentArtifact(object):
 
         subprocess.check_call(["rm", "-f",
                                "{}/*".format(self.paths["attention_graphics"])])
+        self.steps_at_last_make_plots = self.training_steps
 
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = cuda
@@ -138,9 +151,54 @@ class PersistentArtifact(object):
 
         inference_log = guide.get_history()
 
-        # would be nice to be able to plot graphs with error bars (and we can)
-
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
+
+    def make_posterior_videos(self,
+                              test_folder="default",
+                              max_plots=np.inf,
+                              cuda=False):
+        if test_folder == "default":
+            test_folder = "{}/test".format(DATASET_PATH)
+
+        subprocess.check_call(["rm", "-f",
+                               "{}/*".format(self.paths["posterior_videos"])])
+        self.steps_at_last_make_videos = self.training_steps
+
+        guide_kwargs = self.guide_kwargs.copy()
+        guide_kwargs["cuda"] = cuda
+        guide = Guide(**guide_kwargs)
+        guide.load_state_dict(torch.load(self.paths["weights"]))
+
+        csis = CSIS(model=model,
+                    guide=guide,
+                    num_samples=10)
+        csis.set_model_args(**model_kwargs)
+        marginal = Marginal(csis)
+
+        img_no = 0
+        while img_no < max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
+            print("running inference no.", img_no)
+            image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
+            image = image2variable(image)
+            weighted_traces = marginal.trace_dist._traces(observed_image=image)
+            for trace_no, (trace, log_weight) in enumerate(weighted_traces):
+                image = trace.nodes["_RETURN"]["value"]["image"]
+                image = Image.fromarray(image.data.numpy())
+                image.save("{}/{}.png".format(self.paths["posterior_videos"],
+                                              trace_no))
+            subprocess.check_call(["ffmpeg",
+                                   "-r", "4",
+                                   "-f", "image2",
+                                   "-s", "200x200",
+                                   "-i", "{}/%d.png".format(self.paths["posterior_videos"]),
+                                   "-vcodec", "libx264",
+                                   "-crf", "25",
+                                   "-pix_fmt", "yuv420p",
+                                   "{}/{}.mp4".format(self.paths["posterior_videos"],
+                                                      img_no)])
+            subprocess.check_call(["rm", "-f",
+                                   "{}/*.png".format(self.paths["posterior_videos"])])
+            img_no += 1
 
     def save(self):
         path = "{}/artifact.p".format(self.directory)

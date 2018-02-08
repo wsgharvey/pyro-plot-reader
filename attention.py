@@ -7,12 +7,13 @@ import numpy as np
 
 
 class LocationEmbeddingMaker(nn.Module):
-    def __init__(self, x_range, y_range):
+    def __init__(self, x_range, y_range, add_linear_embedding=True):
         """
         x_range is the number ox pixels in the x-direction
         y_range is the number of pixels in the y-direction
         """
         super(LocationEmbeddingMaker, self).__init__()
+        self.add_linear_embedding = add_linear_embedding
         self.x_embedder = nn.Parameter(torch.normal(0, torch.ones(128))/x_range)
         self.y_embedder = nn.Parameter(torch.normal(0, torch.ones(128))/y_range)
 
@@ -31,7 +32,8 @@ class LocationEmbeddingMaker(nn.Module):
                                     np.array(emb_y)))
         if isinstance(self.x_embedder.data, torch.cuda.FloatTensor):
             emb = emb.cuda()
-        emb += x*self.x_embedder + y*self.y_embedder
+        if self.add_linear_embedding:
+            emb += x*self.x_embedder + y*self.y_embedder
         return emb.view(1, 128)
 
 
@@ -49,7 +51,7 @@ class DotProductAttention(nn.Module):
         if not return_graphic:
             return result
         else:
-            graphic = np.zeros((20, 20))
+            graphic = np.zeros((21, 21))
             weights = weights.data
             if isinstance(weights, torch.cuda.FloatTensor):
                 weights = weights.cpu()

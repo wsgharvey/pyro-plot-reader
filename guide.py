@@ -48,6 +48,38 @@ class ViewEmbedder(nn.Module):
         x = x.view(1, self.output_dim)
         return x
 
+class FullViewEmbedder(nn.Module):
+    """
+    embeds a 3x20x20 pixel region into a vector of size `output_dim`
+    """
+    def __init__(self, output_dim):
+        super(ViewEmbedder, self).__init__()
+        self.output_dim = output_dim
+        self.conv1 = nn.Conv2d(3, 8, 3)
+        self.conv2 = nn.Conv2d(8, 8, 3)
+        self.conv3 = nn.Conv2d(8, 16, 3)
+        self.conv4 = nn.Conv2d(16, 16, 3)
+        self.conv5 = nn.Conv2d(16, 16, 3)
+        self.conv6 = nn.Conv2d(16, 32, 3)
+        self.conv7 = nn.Conv2d(32, 64, 3)
+        self.conv8 = nn.Conv2d(64, 64, 3)
+        self.conv9 = nn.Conv2d(64, output_dim, 3)
+
+    def forward(self, x):
+        x = x.view(1, 3, 21, 21)
+        x = self.conv1(x)
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = F.relu(self.conv5(x))
+        x = F.relu(self.conv6(x))
+        x = F.relu(self.conv7(x))
+        x = F.relu(self.conv8(x))
+        x = F.relu(self.conv9(x))
+        x = self.conv10(x)
+        x = x.view(1, self.output_dim)
+        return x
+
 
 class SampleEmbedder(nn.Module):
     """
@@ -74,15 +106,19 @@ class Guide(nn.Module):
                  n_attention_queries=20,
                  n_attention_heads=8,
                  lstm_dropout=0.1,
+                 use_overall_view=True,
+                 low_res_emb_size=64,
                  cuda=False,
-                 share_smp_embedder=False,
-                 share_qry_layer=False,
-                 share_prop_layer=False,
+                 share_smp_embedder=True,
+                 share_qry_layer=True,
+                 share_prop_layer=True,
                  keys_use_view=True,
                  keys_use_loc=True,
                  vals_use_view=True,
                  vals_use_loc=True,
-                 max_simulated_translation=0,
+                 wiggle_picture=True,
+                 max_loc_emb_wiggle=0,
+                 add_linear_loc_emb=True,
                  random_colour=True,
                  random_bar_width=True,
                  random_line_colour=True,
@@ -101,6 +137,8 @@ class Guide(nn.Module):
                             "n_attention_queries": n_attention_queries,
                             "n_attention_heads": n_attention_heads,
                             "lstm_dropout": lstm_dropout,
+                            "use_overall_view": use_overall_view,
+                            "low_res_emb_size": low_res_emb_size,
                             "CUDA": cuda,
                             "share_smp_embedder": share_smp_embedder,
                             "share_qry_layer": share_qry_layer,
@@ -109,7 +147,8 @@ class Guide(nn.Module):
                             "keys_use_loc": keys_use_loc,
                             "vals_use_view": vals_use_view,
                             "vals_use_loc": vals_use_loc,
-                            "max_simulated_translation": max_simulated_translation}
+                            "wiggle_picture": wiggle_picture,
+                            "max_loc_emb_wiggle": max_loc_emb_wiggle}
         self.CUDA = cuda
         self.random_colour = random_colour
         self.random_bar_width = random_bar_width
@@ -141,13 +180,18 @@ class Guide(nn.Module):
         self.administrator = Administrator(self.sample_statements,
                                            self.HYPERPARAMS)
 
-        self.view_embedder = ViewEmbedder()
-        self.big_picture_embedder = ViewEmbedder()
-        self.location_embedder = LocationEmbeddingMaker(200, 200)
+        self.view_embedder = ViewEmbedder(output_dim=d_emb)
+        if use_overall_view:
+            self.low_res_embedder = FullViewEmbedder(output_dim=low_res_emb_size)
+        self.location_embedder = LocationEmbeddingMaker(200, 200, add_linear_loc_emb)
         self.mha = MultiHeadAttention(h=n_attention_heads, d_k=d_k, d_v=d_emb, d_model=d_emb)
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
         self.initial_cell = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
-        self.lstm = nn.LSTM(input_size=n_queries*d_emb + self.administrator.t_dim,
+
+        lstm_input_size = n_queries*d_emb + self.administrator.t_dim
+        if use_overall_view:
+            lstm_input_size += low_res_emb_size
+        self.lstm = nn.LSTM(input_size=lstm_input_size,
                             hidden_size=hidden_size,
                             num_layers=lstm_layers,
                             dropout=lstm_dropout)
@@ -164,7 +208,7 @@ class Guide(nn.Module):
         if cuda:
             self.cuda()
 
-    def init_lstm(self, input_embeddings):
+    def init_lstm(self, input_embeddings, low_res_emb=None):
         """
         run at the start of each trace
         intialises LSTM hidden state etc.
@@ -172,6 +216,7 @@ class Guide(nn.Module):
         self.hidden, self.cell = self.initial_hidden, self.initial_cell
         self.instances_dict = {key: -1 for key in self.sample_statements}   # maybe messy to start from -1
         self.x = input_embeddings
+        self.low_res_emb = low_res_emb
         self.prev_sample_name = None
         self.prev_instance = None
 
@@ -193,7 +238,11 @@ class Guide(nn.Module):
             attention_output = self.mha(queries, self.x, self.x).view(1, -1)
         else:
             attention_output = self.mha(queries, self.x, self.x, self.attention_tracker).view(1, -1)
-        lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
+
+        if self.low_res_emb is None:
+            lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
+        else:
+            lstm_input = torch.cat([attention_output, lor_res_emb, t], 1).view(1, 1, -1)
 
         lstm_output, (hidden, cell) = self.lstm(lstm_input, (self.hidden, self.cell))
         del self.hidden
@@ -216,24 +265,28 @@ class Guide(nn.Module):
         return proposal_params
 
     def forward(self, observed_image=None):
-        x = observed_image.view(1, 3, 200, 200)
+        x = observed_image.view(1, 3, 210, 210)
         if self.CUDA:
             x = x.cuda()
 
         if self.collect_history:
             self.history.append([])
 
+        if self.use_overall_view:
+            low_res_img = nn.AvgPool(10)(x)
+            low_res_emb = self.low_res_embedder(low_res_img)
+
         """ this bit should probably be moved """
         # find and embed each seperate location
-        views = (x[:, :, 10*j:10*(j+2), 10*i:10*(i+2)].clone() for i in range(19) for j in range(19))
+        views = (x[:, :, 10*j:10*(j+2), 10*i:10*(i+2)].clone() for i in range(20) for j in range(20))
         view_embeddings = [self.view_embedder(view) for view in views]
 
         # add location embeddings
-        x_offset = np.random.uniform(0, self.HYPERPARAMS["max_simulated_translation"])  # will be 0 by default
-        y_offset = np.random.uniform(0, self.HYPERPARAMS["max_simulated_translation"])  # will be 0 by default
+        x_offset = np.random.uniform(0, self.HYPERPARAMS["max_loc_emb_wiggle"])  # will be 0 by default
+        y_offset = np.random.uniform(0, self.HYPERPARAMS["max_loc_emb_wiggle"])  # will be 0 by default
         location_embeddings = [self.location_embedder.createLocationEmbedding(i, j, x_offset=x_offset, y_offset=y_offset)
-                               for i in range(0, 190, 10)
-                               for j in range(0, 190, 10)]
+                               for i in range(0, 200, 10)
+                               for j in range(0, 200, 10)]
         if isinstance(x.data, torch.cuda.FloatTensor):
             location_embeddings = [emb.cuda() for emb in location_embeddings]
 
@@ -255,7 +308,10 @@ class Guide(nn.Module):
         # x = torch.cat([view_embeddings, full_pic_embedding], 0)
         """"""
 
-        self.init_lstm(x)
+        if self.use_overall_view:
+            self.init_lstm(x, low_res_emb)
+        else:
+            self.init_lstm(x, None)
         prev_sample_value = None
 
         if self.random_colour:

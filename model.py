@@ -19,10 +19,23 @@ def model(observed_image=Variable(torch.zeros(200, 200)),
           random_colour=True,
           random_bar_width=True,
           random_line_colour=True,
-          random_line_width=True):
+          random_line_width=True,
+          wiggle_picture=True):
     max_height = 10
     max_line_width = 2.5
+    max_translation = 10
     height, width = 200, 200
+
+    if wiggle_picture:
+        x_shift = pyro.sample("x_shift",
+                              dist.categorical,
+                              ps=Variable(torch.ones(max_translation))).data.numpy()[0]
+
+        y_shift = pyro.sample("y_shift",
+                              dist.categorical,
+                              ps=Variable(torch.ones(max_translation))).data.numpy()[0]
+    else:
+        x_shift, y_shift = 0, 0
 
     if random_line_width:
         line_width = pyro.sample("line_width",
@@ -81,6 +94,13 @@ def model(observed_image=Variable(torch.zeros(200, 200)),
     fig = set_size_pixels(fig, (width, height))
     image = Variable(fig2tensor(fig))
     plt.close()
+
+    # do the translation
+    background = Variable(torch.ones(3,
+                                     height+max_translation,
+                                     width+max_translation)) * 255.0
+    background[:, y_shift:y_shift+height, x_shift:x_shift+width] = image
+    image = background
 
     flattened_image = image.view(-1)
     noise_std = Variable(torch.ones(flattened_image.size()))
