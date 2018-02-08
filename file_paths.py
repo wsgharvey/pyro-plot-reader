@@ -1,7 +1,2 @@
-""" TODO: remove these """
-# ARTIFACT_PATH = "artifacts/bar-3d.pt"
-# COMPILE_LOG_PATH = "artifacts/bar-3d"
-""""""
-
-DATASET_PATH = "data/bar-nd"
+DATASET_FOLDER = "data"
 ARTIFACT_FOLDER = "artifacts"

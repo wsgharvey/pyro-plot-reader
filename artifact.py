@@ -7,7 +7,7 @@ import pyro.distributions as dist
 
 from model import Model
 from guide import Guide
-from file_paths import ARTIFACT_FOLDER, DATASET_PATH
+from file_paths import ARTIFACT_FOLDER, DATASET_FOLDER
 
 from helpers import image2variable
 
@@ -104,11 +104,10 @@ class PersistentArtifact(object):
         self.save()
 
     def make_plots(self,
-                   test_folder="default",
+                   dataset_name,
                    max_plots=np.inf,
                    cuda=False):
-        if test_folder == "default":
-            test_folder = "{}/test".format(DATASET_PATH)
+        test_folder = "{}/{}/test".format(DATASET_FOLDER, dataset_name)
 
         subprocess.check_call(["rm", "-f",
                                "{}/*".format(self.paths["attention_graphics"])])
@@ -138,27 +137,32 @@ class PersistentArtifact(object):
             img_no += 1
 
         print("Improving attention graphics...")
-        while os.path.isfile("{}/{}.png".format(self.paths["attention_graphics"], img_no)):
-            img = Image.open("{}/graph_{}.png".format(test_folder, img_no))
-            att = Image.open("{}/{}.png".format(self.paths["attention_graphics"], img_no)).convert('L')
-            h, w, _ = np.asarray(img).shape
-            black = Image.new("RGB", (h, w))
-            black.paste(img, mask=att)
-            img = np.asarray(black).copy()
-            img *= int(255 / np.amax(img))
-            img = Image.fromarray(img)
-            img.save("{}/{}.png".format(self.paths["attention_graphics"], img_no))
+        img_no = 0
+        while os.path.isfile("{}/{}-0.png".format(self.paths["attention_graphics"], img_no)):
+            step = 0
+            while os.path.isfile("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step)):
+                img = Image.open("{}/graph_{}.png".format(test_folder, img_no))
+                att = Image.open("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step)).convert('L')
+                h, w, _ = np.asarray(img).shape
+                black = Image.new("RGB", (h, w))
+                black.paste(img, mask=att)
+                img = np.asarray(black).copy()
+                img *= int(255 / np.amax(img))
+                img = Image.fromarray(img)
+                img.save("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step))
+
+                step += 1
+            img_no += 1
 
         inference_log = guide.get_history()
 
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
 
     def make_posterior_videos(self,
-                              test_folder="default",
+                              dataset_name,
                               max_plots=np.inf,
                               cuda=False):
-        if test_folder == "default":
-            test_folder = "{}/test".format(DATASET_PATH)
+        test_folder = "{}/{}/test".format(DATASET_FOLDER, dataset_name)
 
         subprocess.check_call(["rm", "-f",
                                "{}/*".format(self.paths["posterior_videos"])])

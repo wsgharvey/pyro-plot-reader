@@ -1,7 +1,7 @@
 from pyro.infer.csis.util import sample_from_prior
 
-from file_paths import DATASET_PATH
-from model import model
+from file_paths import DATASET_FOLDER
+from model import Model
 
 import os
 
@@ -10,27 +10,28 @@ import numpy as np
 import torch
 
 import argparse
+import pickle
 
 from artifact import PersistentArtifact
-import argparse
 
 parser = argparse.ArgumentParser("Create a dataset")
-parser.add_argument("-a", help="An artifact to copy the keyword arguments from. If not provided, will use defaults", nargs=1, type=str)
+parser.add_argument("name", help="Name of the dataset", type=str)
+parser.add_argument("-a", help="An artifact to copy the keyword arguments from. If not provided, will use defaults", type=str)
 args = parser.parse_args()
 if args.a is not None:
-    artifact = PersistentArtifact.load(args.a[0])
+    artifact = PersistentArtifact.load(args.a)
     model_kwargs = artifact.model_kwargs
     del artifact
 else:
     model_kwargs = {}
+model = Model(**model_kwargs)
+
 
 def create_dataset(file_path,
                    n_data):
     targets = []
     for i in range(n_data):
-        trace = sample_from_prior(model, **model_kwargs)
-        # messy_image = trace.nodes["observed_image"]["value"].view(3, 200, 200)
-        # messy_image = F.relu(messy_image - F.relu(messy_image-255))
+        trace = sample_from_prior(model)
         returned = trace.nodes["_RETURN"]["value"]
 
         targets.append(",".join(map(str, returned["bar_heights"])))
@@ -51,17 +52,20 @@ def create_dataset(file_path,
         f.write("\n".join(targets))
 
 
-# Create README and directories if they don't already exist
-open("{}/README.md".format(DATASET_PATH), 'a').close()
-if not os.path.exists("{}/train".format(DATASET_PATH)):
-    os.makedirs("{}/train".format(DATASET_PATH))
-if not os.path.exists("{}/validation".format(DATASET_PATH)):
-    os.makedirs("{}/validation".format(DATASET_PATH))
-if not os.path.exists("{}/test".format(DATASET_PATH)):
-    os.makedirs("{}/test".format(DATASET_PATH))
+dataset_path = "{}/{}".format(DATASET_FOLDER, args.name)
+if os.path.exists(dataset_path):
+    raise Exception("There's already a folder at {}".format(dataset_path))
+os.makedirs(dataset_path)
+
+# Create README and directories
+open("{}/README.md".format(dataset_path), 'a').close()
+os.makedirs("{}/train".format(dataset_path))
+os.makedirs("{}/validation".format(dataset_path))
+os.makedirs("{}/test".format(dataset_path))
+pickle.dump(model_kwargs, open("{}/data_params.p".format(dataset_path), 'wb'))
 
 # Fill with data
 torch.manual_seed(0)
-create_dataset("{}/train".format(DATASET_PATH), 1000)
-create_dataset("{}/validation".format(DATASET_PATH), 100)
-create_dataset("{}/test".format(DATASET_PATH), 100)
+create_dataset("{}/train".format(dataset_path), 1000)
+create_dataset("{}/validation".format(dataset_path), 100)
+create_dataset("{}/test".format(dataset_path), 100)

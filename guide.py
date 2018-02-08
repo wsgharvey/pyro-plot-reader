@@ -40,7 +40,7 @@ class Guide(nn.Module):
                  vals_use_view=True,
                  vals_use_loc=True,
                  learn_loc_embs=False,
-                 wiggle_picture=True,
+                 wiggle_picture=False,
                  max_loc_emb_wiggle=0,
                  add_linear_loc_emb=True,
                  random_colour=True,

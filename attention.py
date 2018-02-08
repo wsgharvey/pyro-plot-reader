@@ -76,9 +76,9 @@ class DotProductAttention(nn.Module):
                 weights = weights.cpu()
             weights = weights.numpy()
             for query in weights:
-                for i in range(19):
-                    for j in range(19):
-                        graphic[j*1:j*1+2, i*1:i*1+2] += query[i*19+j]
+                for i in range(20):
+                    for j in range(20):
+                        graphic[j*1:j*1+2, i*1:i*1+2] += query[i*20+j]
             graphic = np.repeat(graphic, 10, axis=0)
             graphic = np.repeat(graphic, 10, axis=1)
             return result, graphic
@@ -107,7 +107,7 @@ class MultiHeadAttention(nn.Module):
         :returns: n_locations x d_model
         """
         if attention_tracker is not None:
-            graphic = np.zeros((200, 200))
+            graphic = np.zeros((210, 210))
 
         head_outputs = []
         for i in range(self.h):
