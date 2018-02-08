@@ -5,7 +5,7 @@ import pyro
 from pyro.infer import CSIS, Marginal
 import pyro.distributions as dist
 
-from model import model
+from model import Model
 from guide import Guide
 from file_paths import ARTIFACT_FOLDER, DATASET_PATH
 
@@ -80,10 +80,10 @@ class PersistentArtifact(object):
 
         optim = torch.optim.Adam(guide.parameters(), **self.optimiser_kwargs)
 
-        csis = CSIS(model=model,
+        csis = CSIS(model=Model(**self.model_kwargs),
                     guide=guide,
                     num_samples=1)
-        csis.set_model_args(**model_kwargs)
+        csis.set_model_args()
         csis.set_compiler_args(**self.compiler_kwargs)
 
         # Force validation batch to be created with a certain random seed
@@ -105,7 +105,7 @@ class PersistentArtifact(object):
 
     def make_plots(self,
                    test_folder="default",
-                   max_plots=np.inf:
+                   max_plots=np.inf,
                    cuda=False):
         if test_folder == "default":
             test_folder = "{}/test".format(DATASET_PATH)
@@ -121,10 +121,10 @@ class PersistentArtifact(object):
         guide = Guide(**guide_kwargs)
         guide.load_state_dict(torch.load(self.paths["weights"]))
 
-        csis = CSIS(model=model,
+        csis = CSIS(model=Model(**self.model_kwargs),
                     guide=guide,
                     num_samples=1)
-        csis.set_model_args(**model_kwargs)
+        csis.set_model_args()
         marginal = Marginal(csis)
 
         img_no = 0
@@ -169,10 +169,10 @@ class PersistentArtifact(object):
         guide = Guide(**guide_kwargs)
         guide.load_state_dict(torch.load(self.paths["weights"]))
 
-        csis = CSIS(model=model,
+        csis = CSIS(model=Model(**self.model_kwargs),
                     guide=guide,
                     num_samples=10)
-        csis.set_model_args(**model_kwargs)
+        csis.set_model_args()
         marginal = Marginal(csis)
 
         img_no = 0

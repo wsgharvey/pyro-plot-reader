@@ -9,12 +9,26 @@ from PIL import Image
 import numpy as np
 import torch
 
+import argparse
+
+from artifact import PersistentArtifact
+import argparse
+
+parser = argparse.ArgumentParser("Create a dataset")
+parser.add_argument("-a", help="An artifact to copy the keyword arguments from. If not provided, will use defaults", nargs=1, type=str)
+args = parser.parse_args()
+if args.a is not None:
+    artifact = PersistentArtifact.load(args.a[0])
+    model_kwargs = artifact.model_kwargs
+    del artifact
+else:
+    model_kwargs = {}
 
 def create_dataset(file_path,
                    n_data):
     targets = []
     for i in range(n_data):
-        trace = sample_from_prior(model)
+        trace = sample_from_prior(model, **model_kwargs)
         # messy_image = trace.nodes["observed_image"]["value"].view(3, 200, 200)
         # messy_image = F.relu(messy_image - F.relu(messy_image-255))
         returned = trace.nodes["_RETURN"]["value"]

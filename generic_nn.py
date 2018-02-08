@@ -51,13 +51,13 @@ class Administrator(nn.Module):
             self.query_layers = nn.ModuleList([QueryLayer(self.t_dim,
                                                HYPERPARAMS["hidden_size"],
                                                HYPERPARAMS["n_queries"],
-                                               HYPERPARAMS["d_model"])
+                                               HYPERPARAMS["d_emb"])
                                               for address in self.sample_statements.values()])
         else:
             self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
                                                                          HYPERPARAMS["hidden_size"],
                                                                          HYPERPARAMS["n_queries"],
-                                                                         HYPERPARAMS["d_model"])
+                                                                         HYPERPARAMS["d_emb"])
                                                               for _ in range(address["instances"])])
                                                for address in self.sample_statements.values()])
 

@@ -34,7 +34,7 @@ compiler_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.c)}
 optimiser_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.o)}
 
 if args.copy is not None:
-    mould = PersistentArtifact.load(args.copy)
+    mould = PersistentArtifact.load(args.copy[0])
     model_kwargs.update(mould.model_kwargs)
     guide_kwargs.update(mould.guide_kwargs)
     compiler_kwargs.update(mould.compiler_kwargs)

@@ -6,16 +6,19 @@ from torch.autograd import Variable
 import numpy as np
 
 
-class LocationEmbeddingMaker(nn.Module):
+class FourierLocationEmbedder(nn.Module):
     def __init__(self, x_range, y_range, add_linear_embedding=True):
         """
         x_range is the number ox pixels in the x-direction
         y_range is the number of pixels in the y-direction
         """
-        super(LocationEmbeddingMaker, self).__init__()
+        super(FourierLocationEmbedder, self).__init__()
         self.add_linear_embedding = add_linear_embedding
         self.x_embedder = nn.Parameter(torch.normal(0, torch.ones(128))/x_range)
         self.y_embedder = nn.Parameter(torch.normal(0, torch.ones(128))/y_range)
+
+    def __call__(self, *args, **kwargs):
+        return self.createLocationEmbedding(*args, **kwargs)
 
     def createLocationEmbedding(self, x, y, x_offset=0, y_offset=0):
         """
@@ -37,6 +40,22 @@ class LocationEmbeddingMaker(nn.Module):
         return emb.view(1, 128)
 
 
+class LearnedLocationEmbedder(nn.Module):
+    def __init__(self, output_dim):
+        super(LearnedLocationEmbedder, self).__init__()
+        self.output_dim = output_dim
+        self.fcn1 = nn.Linear(1, 16)
+        self.fcn2 = nn.Linear(16, 64)
+        self.fcn3 = nn.Linear(64, output_dim)
+
+    def forward(self, x):
+        x = x.view(-1, 1)
+        x = F.relu(self.fcn1(x))
+        x = F.relu(self.fcn2(x))
+        x = self.fcn3(x)
+        return x
+
+
 class DotProductAttention(nn.Module):
     def __init__(self):
         super(DotProductAttention, self).__init__()
@@ -45,7 +64,7 @@ class DotProductAttention(nn.Module):
         weights = torch.mm(Q, K.transpose(0, 1))    # K transpose?
         d_k = K.size()[0]
         weights /= d_k**0.5
-        weights = torch.nn.Softmax()(weights)
+        weights = torch.nn.Softmax(-1)(weights)
         result = torch.mm(weights, V)
 
         if not return_graphic:

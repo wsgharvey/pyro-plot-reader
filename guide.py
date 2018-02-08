@@ -10,89 +10,12 @@ import pyro.infer.csis.proposal_dists as proposal_dists
 
 import numpy as np
 
-from attention import LocationEmbeddingMaker, MultiHeadAttention
+from attention import FourierLocationEmbedder,\
+                      LearnedLocationEmbedder,\
+                      MultiHeadAttention
 from generic_nn import Administrator
 from graphics import AttentionTracker
-
-
-class ViewEmbedder(nn.Module):
-    """
-    embeds a 3x20x20 pixel region into a vector of size `output_dim`
-    """
-    def __init__(self, output_dim):
-        super(ViewEmbedder, self).__init__()
-        self.output_dim = output_dim                        # 20x20
-        self.conv1 = nn.Conv2d(3, 8, 3)                     # 18x18
-        self.conv2 = nn.Conv2d(8, 8, 3)                     # 16x16
-        self.conv3 = nn.Conv2d(8, 16, 3)                    # 14x14
-        self.conv4 = nn.Conv2d(16, 16, 3)                   # 12x12
-        self.conv5 = nn.Conv2d(16, 16, 3)                   # 10x10
-        self.conv6 = nn.Conv2d(16, 32, 3)                   # 8x8
-        self.conv7 = nn.Conv2d(32, 64, 3)                   # 6x6
-        self.conv8 = nn.Conv2d(64, 64, 3)                   # 4x4
-        self.conv9 = nn.Conv2d(64, max(64, output_dim), 3)  # 2x2
-        self.conv10 = nn.Conv2d(256, output_dim, 2)         # 1x1
-
-    def forward(self, x):
-        x = x.view(1, 3, 20, 20)
-        x = self.conv1(x)
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv4(x))
-        x = F.relu(self.conv5(x))
-        x = F.relu(self.conv6(x))
-        x = F.relu(self.conv7(x))
-        x = F.relu(self.conv8(x))
-        x = F.relu(self.conv9(x))
-        x = self.conv10(x)
-        x = x.view(1, self.output_dim)
-        return x
-
-class FullViewEmbedder(nn.Module):
-    """
-    embeds a 3x20x20 pixel region into a vector of size `output_dim`
-    """
-    def __init__(self, output_dim):
-        super(ViewEmbedder, self).__init__()
-        self.output_dim = output_dim
-        self.conv1 = nn.Conv2d(3, 8, 3)
-        self.conv2 = nn.Conv2d(8, 8, 3)
-        self.conv3 = nn.Conv2d(8, 16, 3)
-        self.conv4 = nn.Conv2d(16, 16, 3)
-        self.conv5 = nn.Conv2d(16, 16, 3)
-        self.conv6 = nn.Conv2d(16, 32, 3)
-        self.conv7 = nn.Conv2d(32, 64, 3)
-        self.conv8 = nn.Conv2d(64, 64, 3)
-        self.conv9 = nn.Conv2d(64, output_dim, 3)
-
-    def forward(self, x):
-        x = x.view(1, 3, 21, 21)
-        x = self.conv1(x)
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv4(x))
-        x = F.relu(self.conv5(x))
-        x = F.relu(self.conv6(x))
-        x = F.relu(self.conv7(x))
-        x = F.relu(self.conv8(x))
-        x = F.relu(self.conv9(x))
-        x = self.conv10(x)
-        x = x.view(1, self.output_dim)
-        return x
-
-
-class SampleEmbedder(nn.Module):
-    """
-    use one of these per sample address
-    """
-    def __init__(self, output_dim):
-        super(SampleEmbedder, self).__init__()
-        self.fcn1 = nn.Linear(1, output_dim)
-        self.fcn2 = nn.Linear(output_dim, output_dim)
-
-    def forward(self, x):
-        x = x.view(1, 1)
-        return self.fcn2(F.relu(self.fcn1(x)))
+from cnn import ViewEmbedder, FullViewEmbedder
 
 
 class Guide(nn.Module):
@@ -116,6 +39,7 @@ class Guide(nn.Module):
                  keys_use_loc=True,
                  vals_use_view=True,
                  vals_use_loc=True,
+                 learn_loc_embs=False,
                  wiggle_picture=True,
                  max_loc_emb_wiggle=0,
                  add_linear_loc_emb=True,
@@ -129,7 +53,7 @@ class Guide(nn.Module):
         super(Guide, self).__init__()
 
         self.HYPERPARAMS = {"d_k": d_k,
-                            "d_emb": d_emb,
+                            "d_emb": d_emb,     # cannot be changed without changing FourierLocationEmbedder
                             "n_queries": n_queries,
                             "hidden_size": hidden_size,
                             "lstm_layers": lstm_layers,
@@ -147,19 +71,25 @@ class Guide(nn.Module):
                             "keys_use_loc": keys_use_loc,
                             "vals_use_view": vals_use_view,
                             "vals_use_loc": vals_use_loc,
-                            "wiggle_picture": wiggle_picture,
                             "max_loc_emb_wiggle": max_loc_emb_wiggle}
         self.CUDA = cuda
         self.random_colour = random_colour
         self.random_bar_width = random_bar_width
         self.random_line_colour = random_line_colour
         self.random_line_width = random_line_width
+        self.wiggle_picture = wiggle_picture
 
         self.sample_statements = {"num_bars":   {"instances": 1,
                                                  "dist": dist.categorical,
                                                  "output_dim": 5},
                                   "bar_height": {"instances": 5,
                                                  "dist": dist.uniform}}
+        if wiggle_picture:
+            shifts = {shift: {"instances": 1,
+                              "dist": dist.categorical,
+                              "output_dim": 10}
+                      for shift in ("x_shift", "y_shift")}
+            self.sample_statements.update(shifts)
         if random_colour:
             colour_samples = {col: {"instances": 1,
                                     "dist": dist.uniform}
@@ -183,7 +113,10 @@ class Guide(nn.Module):
         self.view_embedder = ViewEmbedder(output_dim=d_emb)
         if use_overall_view:
             self.low_res_embedder = FullViewEmbedder(output_dim=low_res_emb_size)
-        self.location_embedder = LocationEmbeddingMaker(200, 200, add_linear_loc_emb)
+        if learn_loc_embs:
+            self.location_embedder = LearnedLocationEmbedder(d_emb)
+        else:
+            self.location_embedder = FourierLocationEmbedder(200, 200, add_linear_loc_emb)
         self.mha = MultiHeadAttention(h=n_attention_heads, d_k=d_k, d_v=d_emb, d_model=d_emb)
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
         self.initial_cell = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
@@ -208,14 +141,15 @@ class Guide(nn.Module):
         if cuda:
             self.cuda()
 
-    def init_lstm(self, input_embeddings, low_res_emb=None):
+    def init_lstm(self, keys, values, low_res_emb=None):
         """
         run at the start of each trace
         intialises LSTM hidden state etc.
         """
         self.hidden, self.cell = self.initial_hidden, self.initial_cell
         self.instances_dict = {key: -1 for key in self.sample_statements}   # maybe messy to start from -1
-        self.x = input_embeddings
+        self.keys = keys
+        self.values = values
         self.low_res_emb = low_res_emb
         self.prev_sample_name = None
         self.prev_instance = None
@@ -235,14 +169,14 @@ class Guide(nn.Module):
                                  prev_sample_value)
         queries = self.administrator.get_query_layer(current_sample_name, current_instance)(self.hidden, t)   # this should use sample_name not step
         if self.attention_tracker is None:
-            attention_output = self.mha(queries, self.x, self.x).view(1, -1)
+            attention_output = self.mha(queries, self.keys, self.values).view(1, -1)
         else:
-            attention_output = self.mha(queries, self.x, self.x, self.attention_tracker).view(1, -1)
+            attention_output = self.mha(queries, self.keys, self.values, self.attention_tracker).view(1, -1)
 
         if self.low_res_emb is None:
             lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
         else:
-            lstm_input = torch.cat([attention_output, lor_res_emb, t], 1).view(1, 1, -1)
+            lstm_input = torch.cat([attention_output, self.low_res_emb, t], 1).view(1, 1, -1)
 
         lstm_output, (hidden, cell) = self.lstm(lstm_input, (self.hidden, self.cell))
         del self.hidden
@@ -272,25 +206,24 @@ class Guide(nn.Module):
         if self.collect_history:
             self.history.append([])
 
-        if self.use_overall_view:
-            low_res_img = nn.AvgPool(10)(x)
+        if self.HYPERPARAMS["use_overall_view"]:
+            low_res_img = nn.AvgPool2d(10)(x)
             low_res_emb = self.low_res_embedder(low_res_img)
 
         """ this bit should probably be moved """
         # find and embed each seperate location
-        views = (x[:, :, 10*j:10*(j+2), 10*i:10*(i+2)].clone() for i in range(20) for j in range(20))
-        view_embeddings = [self.view_embedder(view) for view in views]
+        views = [x[:, :, 10*j:10*(j+2), 10*i:10*(i+2)].clone().view(1, 3, 20, 20) for i in range(20) for j in range(20)]
+        views = torch.cat(views, 0)
+        view_embeddings = self.view_embedder(views)
 
         # add location embeddings
         x_offset = np.random.uniform(0, self.HYPERPARAMS["max_loc_emb_wiggle"])  # will be 0 by default
         y_offset = np.random.uniform(0, self.HYPERPARAMS["max_loc_emb_wiggle"])  # will be 0 by default
-        location_embeddings = [self.location_embedder.createLocationEmbedding(i, j, x_offset=x_offset, y_offset=y_offset)
+        location_embeddings = [self.location_embedder(i, j, x_offset=x_offset, y_offset=y_offset)
                                for i in range(0, 200, 10)
                                for j in range(0, 200, 10)]
         if isinstance(x.data, torch.cuda.FloatTensor):
             location_embeddings = [emb.cuda() for emb in location_embeddings]
-
-        view_embeddings = torch.cat(view_embeddings, 0)
         location_embeddings = torch.cat(location_embeddings, 0)
 
         keys = Variable(torch.zeros(view_embeddings.shape))
@@ -308,11 +241,18 @@ class Guide(nn.Module):
         # x = torch.cat([view_embeddings, full_pic_embedding], 0)
         """"""
 
-        if self.use_overall_view:
-            self.init_lstm(x, low_res_emb)
+        if self.HYPERPARAMS["use_overall_view"]:
+            self.init_lstm(keys, values, low_res_emb)
         else:
-            self.init_lstm(x, None)
+            self.init_lstm(keys, values, None)
         prev_sample_value = None
+
+        if self.wiggle_picture:
+            for shift in ("x_shift", "y_shift"):
+                ps = self.time_step(shift, prev_sample_value)
+                prev_sample_value = pyro.sample(shift,
+                                                proposal_dists.categorical_proposal,
+                                                ps=ps).type(torch.FloatTensor)
 
         if self.random_colour:
             for colour in ("red", "green", "blue"):
@@ -329,7 +269,7 @@ class Guide(nn.Module):
             modes, certainties = self.time_step("bar_width",
                                                 prev_sample_value)
             mode, certainty = modes[0], certainties[0]
-            prev_sample_value = pyro.sample(colour,
+            prev_sample_value = pyro.sample("bar_width",
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
                                             Variable(torch.Tensor([1])),
@@ -340,7 +280,7 @@ class Guide(nn.Module):
                 modes, certainties = self.time_step("line_{}".format(colour),
                                                     prev_sample_value)
                 mode, certainty = modes[0], certainties[0]
-                prev_sample_value = pyro.sample(colour,
+                prev_sample_value = pyro.sample("line_{}".format(colour),
                                                 proposal_dists.uniform_proposal,
                                                 Variable(torch.Tensor([0])),
                                                 Variable(torch.Tensor([1])),
@@ -350,11 +290,11 @@ class Guide(nn.Module):
             modes, certainties = self.time_step("line_width",
                                                 prev_sample_value)
             mode, certainty = modes[0], certainties[0]
-            prev_sample_value = pyro.sample(colour,
+            prev_sample_value = pyro.sample("line_width",
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
-                                            Variable(torch.Tensor([1])),
-                                            mode,
+                                            Variable(torch.Tensor([2.5])),
+                                            mode*2.5,
                                             certainty)
 
         ps = self.time_step("num_bars",
@@ -362,18 +302,18 @@ class Guide(nn.Module):
         num_bars = pyro.sample("num_bars",
                                 proposal_dists.categorical_proposal,
                                 ps=ps)
-
         prev_sample_value = num_bars.type(torch.FloatTensor)
+
         for _ in range(num_bars):
             modes, certainties = self.time_step("bar_height",
                                                 prev_sample_value)
-            mode, certainty = modes[0]*10, certainties[0]
+            mode, certainty = modes[0], certainties[0]
             print(mode.data.numpy()[0])
             prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
                                             Variable(torch.Tensor([10])),
-                                            mode,
+                                            mode*10,
                                             certainty)
 
         if self.attention_tracker is not None:

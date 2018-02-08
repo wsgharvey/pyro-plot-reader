@@ -51,6 +51,6 @@ class CategoricalProposalLayer(ProposalLayer):
     def forward(self, x):
         x = x.view(1, -1)
         x = self.fcn2(F.relu(self.fcn1(x)))
-        x = nn.Softmax()(x)
+        x = nn.Softmax(-1)(x)
         x = x.view(-1)
         return x
