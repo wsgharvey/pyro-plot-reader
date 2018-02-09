@@ -29,10 +29,10 @@ if args.o is None:
 
 if args.copy is not None:
     mould = PersistentArtifact.load(args.copy[0])
-    model_kwargs.update(mould.model_kwargs)
-    guide_kwargs.update(mould.guide_kwargs)
-    compiler_kwargs.update(mould.compiler_kwargs)
-    optimiser_kwargs.update(mould.optimiser_kwargs)
+    model_kwargs = mould.model_kwargs
+    guide_kwargs = mould.guide_kwargs
+    compiler_kwargs = mould.compiler_kwargs
+    optimiser_kwargs = mould.optimiser_kwargs
 else:
     model_kwargs = {}
     guide_kwargs = {}
@@ -54,8 +54,7 @@ optimiser_kwargs.update(optimiser_kwarg_changes)
 
 a = PersistentArtifact(args.name[0],
                        model_kwargs=model_kwargs,
-                       guide_kwargs=guide_kwargs,
-                       model_and_guide_kwargs=model_and_guide_kwargs,
+                       guide_kwargs=guide_kwargs, 
                        compiler_kwargs=compiler_kwargs,
                        optimiser_kwargs=optimiser_kwargs)
 # Saves automatically
