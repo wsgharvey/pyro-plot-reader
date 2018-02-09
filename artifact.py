@@ -22,8 +22,7 @@ import subprocess
 class PersistentArtifact(object):
     def __init__(self, name,
                  model_kwargs,
-                 guide_kwargs,
-                 model_and_guide_kwargs,
+                 guide_kwargs,,
                  compiler_kwargs,
                  optimiser_kwargs):
         """
@@ -32,9 +31,7 @@ class PersistentArtifact(object):
         """
         self.name = name
         self.model_kwargs = model_kwargs
-        self.model_kwargs.update(model_and_guide_kwargs)
         self.guide_kwargs = guide_kwargs
-        self.guide_kwargs.update(model_and_guide_kwargs)
         self.compiler_kwargs = compiler_kwargs
         self.optimiser_kwargs = optimiser_kwargs
 

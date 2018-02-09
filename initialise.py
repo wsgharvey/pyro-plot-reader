@@ -39,13 +39,18 @@ else:
     compiler_kwargs = {}
     optimiser_kwargs = {}
 
-model_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.m)}
-guide_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.g)}
-model_and_guide_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.mg)}
-compiler_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.c)}
-optimiser_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.o)}
+model_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.m)}
+guide_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.g)}
+model_and_guide_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.mg)}
+compiler_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.c)}
+optimiser_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.o)}
 
-
+model_kwargs.update(model_kwarg_changes)
+guide_kwargs.update(guide_kwarg_changes)
+model_kwargs.update(model_and_guide_kwarg_changes)
+guide_kwargs.update(model_and_guide_kwarg_changes)
+compiler_kwargs.update(compiler_kwarg_changes)
+optimiser_kwargs.update(optimiser_kwarg_changes)
 
 a = PersistentArtifact(args.name[0],
                        model_kwargs=model_kwargs,
