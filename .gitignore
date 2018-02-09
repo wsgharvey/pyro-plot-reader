@@ -106,5 +106,8 @@ data/*/test/*
 data/*/train/*
 data/*/validation/*
 
+# Gernerated plots
+plots/*
+
 # Artifacts
 artifacts/*
