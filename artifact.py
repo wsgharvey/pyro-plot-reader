@@ -219,7 +219,7 @@ class PersistentArtifact(object):
         new.name = new_name
         new._init_paths()
         for path_name in self.paths:
-            subprocess.check_call(["cp", "-3",
+            subprocess.check_call(["cp", "-r",
                                    self.paths[path_name],
                                    new.paths[path_name]])
         new.save()
