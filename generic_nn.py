@@ -34,6 +34,8 @@ class Administrator(nn.Module):
         self.dists = list(set([address["dist"] for address in sample_statements.values()]))
         self.max_instances = max(v["instances"] for v in sample_statements.values())
         self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists) + self.max_instances
+        if self.HYPERPARAMS["use_low_res_view"]:
+            self.t_dim += self.HYPERPARAMS["low_res_emb_size"]
 
         if HYPERPARAMS["share_prop_layer"]:
             self.proposal_layers = nn.ModuleList([proposal_layer(address["dist"],
@@ -119,7 +121,13 @@ class Administrator(nn.Module):
         one_hot[0, instance] = 1
         return one_hot
 
-    def t(self, current_instance, current_sample_name, prev_instance, prev_sample_name, prev_sample_value):
+    def t(self,
+          current_instance,
+          current_sample_name,
+          prev_instance,
+          prev_sample_name,
+          prev_sample_value,
+          low_res_emb=None):
         """
         returns an embedding of current and previous sample statement names and
         distributions and the previously sampled value (a.k.a. t)
@@ -145,6 +153,8 @@ class Administrator(nn.Module):
                            self.one_hot_distribution(current_sample_name),
                            self.one_hot_instance(current_instance),
                            self.get_sample_embedder(prev_sample_name, prev_instance)(prev_sample_value)], 1)
+        if self.HYPERPARAMS["use_low_res_view"]:
+            t = torch.cat([t, low_res_emb], 1)
         return t
 
 
@@ -168,6 +178,7 @@ class QueryLayer(nn.Module):
         self.fcn2 = nn.Linear(n_queries*d_model, n_queries*d_model)
 
     def forward(self, t, prev_hidden):
+        prev_hidden = prev_hidden[-1, :, :]
         t = t.view(1, -1)
         prev_hidden = prev_hidden.view(1, -1)
         x = torch.cat((t, prev_hidden), 1)

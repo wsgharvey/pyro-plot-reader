@@ -21,7 +21,7 @@ class Model(object):
                  random_bar_width=True,
                  random_line_colour=True,
                  random_line_width=True,
-                 wiggle_picture=True):
+                 wiggle_picture=False):
         self.random_colour = random_colour
         self.random_bar_width = random_bar_width
         self.random_line_colour = random_line_colour

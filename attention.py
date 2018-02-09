@@ -7,15 +7,16 @@ import numpy as np
 
 
 class FourierLocationEmbedder(nn.Module):
-    def __init__(self, x_range, y_range, add_linear_embedding=True):
+    def __init__(self, output_dim, x_range, y_range, add_linear_embedding=True):
         """
         x_range is the number ox pixels in the x-direction
         y_range is the number of pixels in the y-direction
         """
         super(FourierLocationEmbedder, self).__init__()
+        self.output_dim = output_dim
         self.add_linear_embedding = add_linear_embedding
-        self.x_embedder = nn.Parameter(torch.normal(0, torch.ones(128))/x_range)
-        self.y_embedder = nn.Parameter(torch.normal(0, torch.ones(128))/y_range)
+        self.x_embedder = nn.Parameter(torch.normal(0, torch.ones(output_dim))/x_range)
+        self.y_embedder = nn.Parameter(torch.normal(0, torch.ones(output_dim))/y_range)
 
     def __call__(self, *args, **kwargs):
         return self.createLocationEmbedding(*args, **kwargs)
@@ -25,31 +26,37 @@ class FourierLocationEmbedder(nn.Module):
         x, y are the coordinates of the location being embedded
         x_offset, y_offset allow an offset to simulate the image being translated
         """
+        steps1 = int(self.output_dim/2)
+        steps2 = int(self.output_dim/2 + 0.5)
         x = x + x_offset
         y = y + y_offset
-        emb_x = [np.sin(x/(30**(i/64))) for i in range(64)] + \
-                [np.cos(x/(30**(i/64))) for i in range(64)]
-        emb_y = [np.cos(y/(30**(i/64))) for i in range(64)] + \
-                [np.sin(y/(30**(i/64))) for i in range(64)]
+        emb_x = [np.sin(x/(30**(i/steps1))) for i in range(steps1)] + \
+                [np.cos(x/(30**(i/steps2))) for i in range(steps2)]
+        emb_y = [np.cos(y/(30**(i/steps1))) for i in range(steps1)] + \
+                [np.sin(y/(30**(i/steps2))) for i in range(steps2)]
         emb = Variable(torch.Tensor(np.array(emb_x) +
                                     np.array(emb_y)))
         if isinstance(self.x_embedder.data, torch.cuda.FloatTensor):
             emb = emb.cuda()
         if self.add_linear_embedding:
             emb += x*self.x_embedder + y*self.y_embedder
-        return emb.view(1, 128)
+        return emb.view(-1, self.output_dim)
 
 
 class LearnedLocationEmbedder(nn.Module):
     def __init__(self, output_dim):
         super(LearnedLocationEmbedder, self).__init__()
         self.output_dim = output_dim
-        self.fcn1 = nn.Linear(1, 16)
+        self.fcn1 = nn.Linear(2, 16)
         self.fcn2 = nn.Linear(16, 64)
         self.fcn3 = nn.Linear(64, output_dim)
 
-    def forward(self, x):
-        x = x.view(-1, 1)
+    def forward(self, x, y, x_offset=0, y_offset=0):
+        x -= x_offset
+        y -= y_offset
+        x = Variable(torch.Tensor(np.array(x)))
+        y = Variable(torch.Tensor(np.array(y)))
+        x = torch.cat([x.view(-1, 1), y.view(-1, 1)], 1)
         x = F.relu(self.fcn1(x))
         x = F.relu(self.fcn2(x))
         x = self.fcn3(x)

@@ -21,7 +21,7 @@ from cnn import ViewEmbedder, FullViewEmbedder
 class Guide(nn.Module):
     def __init__(self,
                  d_k=64,
-                 d_emb=128,
+                 d_emb=128,     # cannot be changed without changing FourierLocationEmbedder
                  n_queries=16,
                  hidden_size=2048,
                  lstm_layers=1,
@@ -29,7 +29,7 @@ class Guide(nn.Module):
                  n_attention_queries=20,
                  n_attention_heads=8,
                  lstm_dropout=0.1,
-                 use_overall_view=True,
+                 use_low_res_view=True,
                  low_res_emb_size=64,
                  cuda=False,
                  share_smp_embedder=True,
@@ -61,7 +61,7 @@ class Guide(nn.Module):
                             "n_attention_queries": n_attention_queries,
                             "n_attention_heads": n_attention_heads,
                             "lstm_dropout": lstm_dropout,
-                            "use_overall_view": use_overall_view,
+                            "use_low_res_view": use_low_res_view,
                             "low_res_emb_size": low_res_emb_size,
                             "CUDA": cuda,
                             "share_smp_embedder": share_smp_embedder,
@@ -111,19 +111,17 @@ class Guide(nn.Module):
                                            self.HYPERPARAMS)
 
         self.view_embedder = ViewEmbedder(output_dim=d_emb)
-        if use_overall_view:
+        if use_low_res_view:
             self.low_res_embedder = FullViewEmbedder(output_dim=low_res_emb_size)
         if learn_loc_embs:
             self.location_embedder = LearnedLocationEmbedder(d_emb)
         else:
-            self.location_embedder = FourierLocationEmbedder(200, 200, add_linear_loc_emb)
+            self.location_embedder = FourierLocationEmbedder(d_emb, 200, 200, add_linear_loc_emb)
         self.mha = MultiHeadAttention(h=n_attention_heads, d_k=d_k, d_v=d_emb, d_model=d_emb)
-        self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
-        self.initial_cell = nn.Parameter(torch.normal(torch.zeros(1, lstm_layers, hidden_size), 1))
+        self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(lstm_layers, 1, hidden_size), 1))
+        self.initial_cell = nn.Parameter(torch.normal(torch.zeros(lstm_layers, 1, hidden_size), 1))
 
         lstm_input_size = n_queries*d_emb + self.administrator.t_dim
-        if use_overall_view:
-            lstm_input_size += low_res_emb_size
         self.lstm = nn.LSTM(input_size=lstm_input_size,
                             hidden_size=hidden_size,
                             num_layers=lstm_layers,
@@ -166,17 +164,16 @@ class Guide(nn.Module):
                                  current_sample_name,
                                  self.prev_instance,
                                  self.prev_sample_name,
-                                 prev_sample_value)
-        queries = self.administrator.get_query_layer(current_sample_name, current_instance)(self.hidden, t)   # this should use sample_name not step
+                                 prev_sample_value,
+                                 self.low_res_emb)
+        queries = self.administrator.get_query_layer(current_sample_name, current_instance)(t=t,
+                                                                                            prev_hidden=self.hidden)
         if self.attention_tracker is None:
             attention_output = self.mha(queries, self.keys, self.values).view(1, -1)
         else:
             attention_output = self.mha(queries, self.keys, self.values, self.attention_tracker).view(1, -1)
 
-        if self.low_res_emb is None:
-            lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
-        else:
-            lstm_input = torch.cat([attention_output, self.low_res_emb, t], 1).view(1, 1, -1)
+        lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
 
         lstm_output, (hidden, cell) = self.lstm(lstm_input, (self.hidden, self.cell))
         del self.hidden
@@ -206,7 +203,7 @@ class Guide(nn.Module):
         if self.collect_history:
             self.history.append([])
 
-        if self.HYPERPARAMS["use_overall_view"]:
+        if self.HYPERPARAMS["use_low_res_view"]:
             low_res_img = nn.AvgPool2d(10)(x)
             low_res_emb = self.low_res_embedder(low_res_img)
 
@@ -241,7 +238,7 @@ class Guide(nn.Module):
         # x = torch.cat([view_embeddings, full_pic_embedding], 0)
         """"""
 
-        if self.HYPERPARAMS["use_overall_view"]:
+        if self.HYPERPARAMS["use_low_res_view"]:
             self.init_lstm(keys, values, low_res_emb)
         else:
             self.init_lstm(keys, values, None)

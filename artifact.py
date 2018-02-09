@@ -156,6 +156,8 @@ class PersistentArtifact(object):
 
         inference_log = guide.get_history()
 
+        # could now redo dataset and draw on error bars...
+
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
 
     def make_posterior_videos(self,
@@ -187,7 +189,13 @@ class PersistentArtifact(object):
             weighted_traces = marginal.trace_dist._traces(observed_image=image)
             for trace_no, (trace, log_weight) in enumerate(weighted_traces):
                 image = trace.nodes["_RETURN"]["value"]["image"]
-                image = Image.fromarray(image.data.numpy())
+                image = image.view(3, 210, 210)
+                image = image.data.numpy()
+                imgArray = np.zeros((210, 210, 3), 'uint8')
+                imgArray[..., 0] = image[0]
+                imgArray[..., 1] = image[1]
+                imgArray[..., 2] = image[2]
+                image = Image.fromarray(imgArray)
                 image.save("{}/{}.png".format(self.paths["posterior_videos"],
                                               trace_no))
             subprocess.check_call(["ffmpeg",
