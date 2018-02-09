@@ -149,6 +149,7 @@ class Guide(nn.Module):
         self.low_res_emb = low_res_emb
         self.prev_sample_name = None
         self.prev_instance = None
+        self.added_loss = Variable(torch.Tensor([0]))
 
     def time_step(self, current_sample_name, prev_sample_value):
         """
@@ -174,6 +175,7 @@ class Guide(nn.Module):
         lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
 
         lstm_output, (hidden, cell) = self.lstm(lstm_input, (self.hidden, self.cell))
+        self.added_loss += loss_term
         del self.hidden
         del self.cell
         self.hidden, self.cell = hidden, cell
@@ -192,6 +194,31 @@ class Guide(nn.Module):
             except AttributeError:
                 proposal_params = tuple(param.cpu() for param in proposal_params)
         return proposal_params
+
+    def init_ACT(self):
+        """
+        should this exist?
+        """
+
+    def ACT(self, t, K, V):
+        pass
+
+    def lstm_step(self, t, K, V):
+        query_layer = self.administrator.get_query_layer(current_sample_name, current_instance)
+        queries = query_layer(t=t, prev_hidden=self.hidden)
+
+        if self.attention_tracker is None:
+            attention_output = self.mha(queries, K, V).view(1, -1)
+        else:
+            attention_output = self.mha(queries, K, V, self.attention_tracker).view(1, -1)
+
+        lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
+        lstm_output, (hidden, cell) = self.lstm(lstm_input, (self.hidden, self.cell))
+        self.added_loss += loss_term
+        del self.hidden
+        del self.cell
+        self.hidden, self.cell = hidden, cell
+        return lstm_output
 
     def forward(self, observed_image=None):
         x = observed_image.view(1, 3, 210, 210)
@@ -313,6 +340,12 @@ class Guide(nn.Module):
                                             Variable(torch.Tensor([10])),
                                             mode*10,
                                             certainty)
+
+        # a hack to add a term to the loss to limit computation time
+        pyro.sample("N/A - Adding Loss Term",
+                    dist.uniform,
+                    Variable(torch.Tensor([0])),
+                    self.added_loss.exp())
 
         if self.attention_tracker is not None:
             self.attention_tracker.save_graphics()
