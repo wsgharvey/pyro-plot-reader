@@ -223,6 +223,9 @@ class Guide(nn.Module):
 
         keys = Variable(torch.zeros(view_embeddings.shape))
         values = Variable(torch.zeros(view_embeddings.shape))
+        if self.CUDA:
+            keys = keys.cuda()
+            values = values.cuda()
         if self.HYPERPARAMS["keys_use_view"]:
             keys += view_embeddings
         if self.HYPERPARAMS["keys_use_loc"]:

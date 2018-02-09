@@ -27,18 +27,25 @@ if args.c is None:
 if args.o is None:
     args.o = []
 
-model_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.m)}
-guide_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.g)}
-model_and_guide_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.mg)}
-compiler_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.c)}
-optimiser_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.o)}
-
 if args.copy is not None:
     mould = PersistentArtifact.load(args.copy[0])
     model_kwargs.update(mould.model_kwargs)
     guide_kwargs.update(mould.guide_kwargs)
     compiler_kwargs.update(mould.compiler_kwargs)
     optimiser_kwargs.update(mould.optimiser_kwargs)
+else:
+    model_kwargs = {}
+    guide_kwargs = {}
+    compiler_kwargs = {}
+    optimiser_kwargs = {}
+
+model_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.m)}
+guide_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.g)}
+model_and_guide_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.mg)}
+compiler_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.c)}
+optimiser_kwargs = {k: eval(v) for k, v in map(lambda x: x.split("="), args.o)}
+
+
 
 a = PersistentArtifact(args.name[0],
                        model_kwargs=model_kwargs,
