@@ -22,7 +22,7 @@ import subprocess
 class PersistentArtifact(object):
     def __init__(self, name,
                  model_kwargs,
-                 guide_kwargs,,
+                 guide_kwargs,
                  compiler_kwargs,
                  optimiser_kwargs):
         """
