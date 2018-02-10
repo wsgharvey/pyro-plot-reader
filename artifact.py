@@ -46,7 +46,7 @@ class PersistentArtifact(object):
 
         self.save()
 
-    def _init_paths(self):
+    def _init_paths(self, create_dirs=True):
         self.directory = "{}/{}".format(ARTIFACT_FOLDER, self.name)
         if os.path.exists(self.directory):
             raise Exception("Folder already exists at {}".format(self.directory))
@@ -57,8 +57,9 @@ class PersistentArtifact(object):
         inference_log_path = "{}/infer_log.p".format(self.directory)
         attention_graphics_path = "{}/attention_graphics".format(self.directory)
         posterior_videos_path = "{}/posterior_videos".format(self.directory)
-        os.makedirs(attention_graphics_path)
-        os.makedirs(posterior_videos_path)
+        if create_dirs:
+            os.makedirs(attention_graphics_path)
+            os.makedirs(posterior_videos_path)
 
         self.paths = {"weights": weights_path,
                       "infer_log": inference_log_path,
@@ -214,10 +215,12 @@ class PersistentArtifact(object):
         pickle.dump(self, open(path, 'wb'))
 
     def copy(self, new_name):
-        new = type(self)()
+        new = type(self)(new_name, None, None, None, None)
+        subprocess.check_call(["rm", "-rf",
+                               new.directory])
         new.__dict__.update(self.__dict__)
         new.name = new_name
-        new._init_paths()
+        new._init_paths(create_dirs=False)
         for path_name in self.paths:
             subprocess.check_call(["cp", "-r",
                                    self.paths[path_name],
