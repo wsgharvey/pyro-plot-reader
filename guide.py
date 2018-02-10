@@ -349,7 +349,7 @@ class Guide(nn.Module):
                                             certainty)
 
         # a hack to add a term to the loss to limit computation time
-        pyro.sample("N/A - Adding Loss Term",
+        pyro.sample("N/A - Adding Loss Term",   # could this be changed to observe 0? maybe that would stop it showing warnings
                     dist.uniform,
                     Variable(torch.Tensor([0])),
                     self.added_loss.exp())
