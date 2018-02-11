@@ -30,7 +30,7 @@ class Guide(nn.Module):
                  lstm_dropout=0.1,
                  use_low_res_view=True,
                  low_res_view_as_attention_loc=False,
-                 low_res_emb_size=64,
+                 low_res_emb_size=128,
                  cuda=False,
                  share_smp_embedder=True,
                  share_qry_layer=True,
