@@ -86,6 +86,10 @@ class DotProductAttention(nn.Module):
                 for i in range(20):
                     for j in range(20):
                         graphic[j*1:j*1+2, i*1:i*1+2] += query[i*20+j]
+                try:
+                    graphic += query[400]
+                except IndexError:
+                    pass
             graphic = np.repeat(graphic, 10, axis=0)
             graphic = np.repeat(graphic, 10, axis=1)
             return result, graphic

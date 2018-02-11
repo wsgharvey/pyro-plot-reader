@@ -29,6 +29,7 @@ class Guide(nn.Module):
                  n_attention_heads=4,
                  lstm_dropout=0.1,
                  use_low_res_view=True,
+                 low_res_view_as_attention_loc=False,
                  low_res_emb_size=64,
                  cuda=False,
                  share_smp_embedder=True,
@@ -234,6 +235,9 @@ class Guide(nn.Module):
             values += view_embeddings
         if self.HYPERPARAMS["vals_use_loc"]:
             values += location_embeddings
+
+        keys = torch.cat([keys, low_res_emb.view(1, -1)], 0)
+        values = torch.cat([values, low_res_emb.view(1, -1)], 0)
         # low_res_img = nn.AvgPool2d(10)(observed_image.view(1, 3, 200, 200))
         # full_pic_embedding = self.big_picture_embedder(low_res_img)
         # x = torch.cat([view_embeddings, full_pic_embedding], 0)
