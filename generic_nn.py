@@ -34,8 +34,6 @@ class Administrator(nn.Module):
         self.dists = list(set([address["dist"] for address in sample_statements.values()]))
         self.max_instances = max(v["instances"] for v in sample_statements.values())
         self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists) + self.max_instances
-        if self.HYPERPARAMS["use_low_res_view"]:
-            self.t_dim += self.HYPERPARAMS["low_res_emb_size"]
 
         if HYPERPARAMS["share_prop_layer"]:
             self.proposal_layers = nn.ModuleList([proposal_layer(address["dist"],
@@ -48,20 +46,6 @@ class Administrator(nn.Module):
                                                                                 address["output_dim"] if "output_dim" in address else 1)
                                                                  for _ in range(address["instances"])])
                                                   for address in self.sample_statements.values()])
-
-        if HYPERPARAMS["share_qry_layer"]:
-            self.query_layers = nn.ModuleList([QueryLayer(self.t_dim,
-                                               HYPERPARAMS["hidden_size"],
-                                               HYPERPARAMS["n_queries"],
-                                               HYPERPARAMS["d_emb"])
-                                              for address in self.sample_statements.values()])
-        else:
-            self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
-                                                                         HYPERPARAMS["hidden_size"],
-                                                                         HYPERPARAMS["n_queries"],
-                                                                         HYPERPARAMS["d_emb"])
-                                                              for _ in range(address["instances"])])
-                                               for address in self.sample_statements.values()])
 
         if HYPERPARAMS["share_smp_embedder"]:
             self.sample_embedders = nn.ModuleList([SampleEmbedder(1, HYPERPARAMS["smp_emb_dim"])
@@ -91,13 +75,6 @@ class Administrator(nn.Module):
         else:
             return self.sample_embedders[address_index][instance]
 
-    def get_query_layer(self, address, instance):
-        address_index = self._get_address_index(address)
-        if self.HYPERPARAMS["share_qry_layer"]:
-            return self.query_layers[address_index]
-        else:
-            return self.query_layers[address_index][instance]
-
     def one_hot_address(self, address):
         one_hot = Variable(torch.zeros(1, len(self.sample_statements)))
         if self.HYPERPARAMS["CUDA"]:
@@ -126,8 +103,7 @@ class Administrator(nn.Module):
           current_sample_name,
           prev_instance,
           prev_sample_name,
-          prev_sample_value,
-          low_res_emb=None):
+          prev_sample_value):
         """
         returns an embedding of current and previous sample statement names and
         distributions and the previously sampled value (a.k.a. t)
@@ -153,8 +129,6 @@ class Administrator(nn.Module):
                            self.one_hot_distribution(current_sample_name),
                            self.one_hot_instance(current_instance),
                            self.get_sample_embedder(prev_sample_name, prev_instance)(prev_sample_value)], 1)
-        if self.HYPERPARAMS["use_low_res_view"]:
-            t = torch.cat([t, low_res_emb], 1)
         return t
 
 
@@ -167,21 +141,3 @@ class SampleEmbedder(nn.Module):
     def forward(self, x):
         x = x.view(1, -1)
         return F.relu(self.fcn(x))
-
-
-class QueryLayer(nn.Module):
-    def __init__(self, t_dim, hidden_size, n_queries, d_model):
-        super(QueryLayer, self).__init__()
-        self.n_queries = n_queries
-        self.d_model = d_model
-        self.fcn1 = nn.Linear(t_dim+hidden_size, n_queries*d_model)
-        self.fcn2 = nn.Linear(n_queries*d_model, n_queries*d_model)
-
-    def forward(self, t, prev_hidden):
-        prev_hidden = prev_hidden[-1, :, :]
-        t = t.view(1, -1)
-        prev_hidden = prev_hidden.view(1, -1)
-        x = torch.cat((t, prev_hidden), 1)
-        x = self.fcn2(F.relu(self.fcn1(x)))
-        x = x.view(self.n_queries, self.d_model)
-        return x
