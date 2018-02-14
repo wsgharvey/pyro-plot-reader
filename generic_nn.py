@@ -34,7 +34,7 @@ class Administrator(nn.Module):
         self.dists = list(set([address["dist"] for address in sample_statements.values()]))
         self.max_instances = max(v["instances"] for v in sample_statements.values())
         self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists) + self.max_instances
-        if self.HYPERPARAMS["use_low_res_view"]:
+        if self.HYPERPARAMS["use_low_res_view"] and not self.HYPERPARAMS["low_res_view_as_attention_loc"]:
             self.t_dim += self.HYPERPARAMS["low_res_emb_size"]
 
         if HYPERPARAMS["share_prop_layer"]:
@@ -153,7 +153,7 @@ class Administrator(nn.Module):
                            self.one_hot_distribution(current_sample_name),
                            self.one_hot_instance(current_instance),
                            self.get_sample_embedder(prev_sample_name, prev_instance)(prev_sample_value)], 1)
-        if self.HYPERPARAMS["use_low_res_view"]:
+        if low_res_emb is not None:
             t = torch.cat([t, low_res_emb], 1)
         return t
 

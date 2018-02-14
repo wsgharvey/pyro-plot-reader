@@ -8,15 +8,17 @@ import argparse
 parser = argparse.ArgumentParser("compile artifact")
 parser.add_argument("output_file", help="Path to save plot to", type=str)
 parser.add_argument("names", help="Names of artifact to be plotted", nargs='*', type=str)
-
+parser.add_argument("-Y", help="Limit on highest y-axis value", type=float)
 args = parser.parse_args()
 
+fig, ax = plt.subplots()
 for name in args.names:
     artifact = PersistentArtifact.load(name)
     validation_losses = artifact.validation_losses
     x = [steps for steps, loss in validation_losses]
-    y = [loss for steps, loss in validation_losses]
-    plt.plot(x, y, label=name)
+    y = [loss for steps, loss in validation_losses] 
+    ax.plot(x, y, label=name)
+    ax.set_ylim(top=args.Y)
 
 plt.xlabel(r"Training Traces")
 plt.ylabel(r"Validation Loss")
