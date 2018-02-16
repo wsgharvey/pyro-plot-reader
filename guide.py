@@ -184,15 +184,16 @@ class Guide(nn.Module):
 
         self.prev_sample_name = current_sample_name
         self.prev_instance = current_instance
-        if self.collect_history:
-            self.history[-1].append((current_sample_name,
-                                     lstm_output))
 
         if self.CUDA:
             try:
                 proposal_params = proposal_params.cpu()
             except AttributeError:
                 proposal_params = tuple(param.cpu() for param in proposal_params)
+
+        if self.collect_history:
+            self.history[-1]["{}_{}".format(current_sample_name, current_instance)] = proposal_params
+
         return proposal_params
 
     def forward(self, observed_image=None):
@@ -201,7 +202,7 @@ class Guide(nn.Module):
             x = x.cuda()
 
         if self.collect_history:
-            self.history.append([])
+            self.history.append({})
 
         if self.HYPERPARAMS["use_low_res_view"]:
             low_res_img = nn.AvgPool2d(10)(x)

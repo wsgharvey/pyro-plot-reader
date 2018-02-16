@@ -38,6 +38,33 @@ class ViewEmbedder(nn.Module):
         return x
 
 
+class ViewEmbedder2(nn.Module):
+    """
+    embeds a 3x20x20 pixel region into a vector of size `output_dim`
+    """
+    def __init__(self, output_dim):
+        super(ViewEmbedder2, self).__init__()
+        self.output_dim = output_dim                                    # 20x20
+        self.conv1 = nn.Conv2d(3, 8, 3)                                 # 18x18
+        self.conv2 = nn.Conv2d(8, 8, 3)                                 # 16x16
+        self.conv3 = nn.Conv2d(8, 16, 3)                                # 14x14
+        self.conv4 = nn.Conv2d(16, 8, 3)                                # 12x12
+        self.fcn1 = nn.Linear(8*12*12, 128)
+        self.fcn2 = nn.Linear(128, output_dim)
+
+    def forward(self, x):
+        x = x.view(-1, 3, 20, 20)
+        x = self.conv1(x)
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = x.view(-1, 8*12*12)
+        x = F.relu(self.fcn1(x))
+        x = self.fcn2(x)
+        x = x.view(-1, self.output_dim)
+        return x
+
+
 class FullViewEmbedder(nn.Module):
     """
     embeds a 3x21x21 pixel region into a vector of size `output_dim`

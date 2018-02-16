@@ -101,10 +101,11 @@ class PersistentArtifact(object):
         self.training_steps += N_STEPS
         self.save()
 
-    def make_plots(self,
-                   dataset_name,
-                   max_plots=np.inf,
-                   cuda=False):
+    def infer(self,
+              dataset_name,
+              attention_plots=True,
+              max_plots=np.inf,
+              cuda=False):
         test_folder = "{}/{}/test".format(DATASET_FOLDER, dataset_name)
 
         subprocess.check_call(["rm", "-f",
@@ -113,7 +114,10 @@ class PersistentArtifact(object):
 
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = cuda
-        guide_kwargs["attention_graphics_path"] = self.paths["attention_graphics"]
+        if attention_plots:
+            guide_kwargs["attention_graphics_path"] = self.paths["attention_graphics"]
+        else:
+            guide_kwargs["attention_graphics_path"] = None
         guide_kwargs["collect_history"] = True
         guide = Guide(**guide_kwargs)
         guide.load_state_dict(torch.load(self.paths["weights"]))
@@ -154,9 +158,8 @@ class PersistentArtifact(object):
 
         inference_log = guide.get_history()
 
-        # could now redo dataset and draw on error bars...
-
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
+        return inference_log
 
     def make_posterior_videos(self,
                               dataset_name,
