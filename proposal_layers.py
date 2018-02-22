@@ -39,7 +39,7 @@ class UniformProposalLayer(ProposalLayer):
         certainties = x[:, 1]
         modes = nn.Sigmoid()(modes)
         certainties = nn.Softplus()(certainties)
-        return modes, certainties
+        return modes, certainties		# returns size (1,)
 
 
 class CategoricalProposalLayer(ProposalLayer):
