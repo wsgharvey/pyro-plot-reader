@@ -17,12 +17,12 @@ class ScoreKeeper(object):
     def __init__(self):
         self.scores = {}
 
-    def add_score(architecture, dataset, score):
-        if architecture not in d:
-            d[architecture] = {}
-        if dataset not in d[architecture]:
-            d[architecture][dataset] = []
-        d[architecture][dataset].append(score)
+    def add_score(self, architecture, dataset, score):
+        if architecture not in self.scores:
+            self.scores[architecture] = {}
+        if dataset not in self.scores[architecture]:
+            self.scores[architecture][dataset] = []
+        self.scores[architecture][dataset].append(score)
 
 
 parser = argparse.ArgumentParser("run inference with artifact and plot results")
@@ -75,6 +75,6 @@ for trace in inference_log:
 mean_log_pdf = log_pdf / num_bars
 
 if args.L is not None:
-    scores = pickle.load(args.L)
-    scores.add_score(architecture, dataset, mean_log_pdf)
+    scores = pickle.load(open(args.L, 'rb'))
+    scores.add_score(args.architecture, args.dataset, mean_log_pdf)
     pickle.dump(scores, open(args.L, 'wb'))

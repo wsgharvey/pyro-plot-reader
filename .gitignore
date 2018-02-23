@@ -101,7 +101,11 @@ ENV/
 .mypy_cache/
 
 # Generated data files
-data/*
+# data/*
+data
 
 # Artifacts
 artifacts/*
+
+# File paths file
+file_paths.py
