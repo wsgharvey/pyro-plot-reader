@@ -112,11 +112,7 @@ class PersistentArtifact(object):
         self.steps_at_last_make_plots = self.training_steps
 
         guide_kwargs = self.guide_kwargs.copy()
-        guide_kwargs["cuda"] = cuda
-        if attention_plots:
-            guide_kwargs["attention_graphics_path"] = self.paths["attention_graphics"]
-        else:
-            guide_kwargs["attention_graphics_path"] = None
+        guide_kwargs["cuda"] = cuda 
         guide_kwargs["collect_history"] = True
         guide = Guide(**guide_kwargs)
         guide.load_state_dict(torch.load(self.paths["weights"]))
@@ -136,25 +132,7 @@ class PersistentArtifact(object):
             for trace, log_weight in weighted_traces:
                 pass
             img_no += 1
-
-        print("Improving attention graphics...")
-        img_no = 0
-        while os.path.isfile("{}/{}-0.png".format(self.paths["attention_graphics"], img_no)):
-            step = 0
-            while os.path.isfile("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step)):
-                img = Image.open("{}/graph_{}.png".format(test_folder, img_no))
-                att = Image.open("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step)).convert('L')
-                h, w, _ = np.asarray(img).shape
-                black = Image.new("RGB", (h, w))
-                black.paste(img, mask=att)
-                img = np.asarray(black).copy()
-                img *= int(255 / np.amax(img))
-                img = Image.fromarray(img)
-                img.save("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step))
-
-                step += 1
-            img_no += 1
-
+        
         inference_log = guide.get_history()
 
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))

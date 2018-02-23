@@ -28,8 +28,7 @@ args = parser.parse_args()
 print("CUDA:", bool(args.cuda))
 
 artifact = PersistentArtifact.load(args.artifact)
-inference_log = artifact.infer(args.dataset,
-                               attention_plots=True,
+inference_log = artifact.infer(args.dataset, 
                                cuda=bool(args.cuda),
                                max_plots=args.N)
 
