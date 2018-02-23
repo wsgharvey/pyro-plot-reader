@@ -12,17 +12,7 @@ import argparse
 import pickle
 import numpy as np
 
-
-class ScoreKeeper(object):
-    def __init__(self):
-        self.scores = {}
-
-    def add_score(self, architecture, dataset, score):
-        if architecture not in self.scores:
-            self.scores[architecture] = {}
-        if dataset not in self.scores[architecture]:
-            self.scores[architecture][dataset] = []
-        self.scores[architecture][dataset].append(score)
+from helpers import ScoreKeeper
 
 
 parser = argparse.ArgumentParser("run inference with artifact and plot results")

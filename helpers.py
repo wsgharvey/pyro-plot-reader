@@ -45,3 +45,15 @@ def image2variable(image):
     image = np.array(image).astype(np.float32)
     image = np.array([image[..., 0], image[..., 1], image[..., 2]])
     return Variable(torch.Tensor(image))
+
+
+class ScoreKeeper(object):
+    def __init__(self):
+        self.scores = {}
+
+    def add_score(self, architecture, dataset, score):
+        if architecture not in self.scores:
+            self.scores[architecture] = {}
+        if dataset not in self.scores[architecture]:
+            self.scores[architecture][dataset] = []
+        self.scores[architecture][dataset].append(score)
