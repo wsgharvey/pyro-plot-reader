@@ -137,7 +137,7 @@ class Guide(nn.Module):
                  random_line_colour=True,
                  random_line_width=True,
                  collect_history=False,
-                 cnn_number=1):
+                 cnn_number=2):
 
         super(Guide, self).__init__()
 
@@ -187,7 +187,7 @@ class Guide(nn.Module):
         self.administrator = Administrator(self.sample_statements,
                                            self.HYPERPARAMS)
 
-        self.obs_embedder = (CNNEmbedder, CNNEmbedder2)[cnn_number](d_emb)
+        self.obs_embedder = (CNNEmbedder, CNNEmbedder2)[cnn_number-1](d_emb)
 
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(lstm_layers, 1, hidden_size), 1))
         self.initial_cell = nn.Parameter(torch.normal(torch.zeros(lstm_layers, 1, hidden_size), 1))
