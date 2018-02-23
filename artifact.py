@@ -103,7 +103,6 @@ class PersistentArtifact(object):
 
     def infer(self,
               dataset_name,
-              attention_plots=True,
               max_plots=np.inf,
               cuda=False):
         test_folder = "{}/{}/test".format(DATASET_FOLDER, dataset_name)
