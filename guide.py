@@ -259,7 +259,7 @@ class Guide(nn.Module):
             x = x.cuda()
 
         if self.collect_history:
-            self.history.append({})
+            self.history.append([])
 
         x = self.obs_embedder(x)
 
