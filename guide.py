@@ -156,6 +156,7 @@ class Guide(nn.Module):
         self.low_res_emb = low_res_emb
         self.prev_sample_name = None
         self.prev_instance = None
+        self.added_loss = Variable(torch.Tensor([0]))
 
     def program_step(self, current_sample_name, prev_sample_value):
         """
