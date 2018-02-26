@@ -56,7 +56,7 @@ class Administrator(nn.Module):
                                                HYPERPARAMS["d_emb"])
                                               for address in self.sample_statements.values()])
         else:
-            self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
+            self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim+1,                          # +1 for first computation bit
                                                                          HYPERPARAMS["hidden_size"],
                                                                          HYPERPARAMS["n_queries"],
                                                                          HYPERPARAMS["d_emb"])
@@ -174,7 +174,7 @@ class QueryLayer(nn.Module):
         super(QueryLayer, self).__init__()
         self.n_queries = n_queries
         self.d_model = d_model
-        self.fcn1 = nn.Linear(t_dim+hidden_size, n_queries*d_model)
+        self.fcn1 = nn.Linear(t_dim+hidden_size+1, n_queries*d_model)
         self.fcn2 = nn.Linear(n_queries*d_model, n_queries*d_model)
 
     def forward(self, t, prev_hidden):

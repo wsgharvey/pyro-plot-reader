@@ -13,6 +13,7 @@ import numpy as np
 from attention import FourierLocationEmbedder,\
                       LearnedLocationEmbedder,\
                       MultiHeadAttention
+import act
 from generic_nn import Administrator
 from graphics import AttentionTracker
 from cnn import ViewEmbedder, FullViewEmbedder
@@ -43,6 +44,7 @@ class Guide(nn.Module):
                  wiggle_picture=False,
                  max_loc_emb_wiggle=0,
                  add_linear_loc_emb=True,
+                 ponder_cost=1e-3,
                  random_colour=True,
                  random_bar_width=True,
                  random_line_colour=True,
@@ -71,7 +73,8 @@ class Guide(nn.Module):
                             "keys_use_loc": keys_use_loc,
                             "vals_use_view": vals_use_view,
                             "vals_use_loc": vals_use_loc,
-                            "max_loc_emb_wiggle": max_loc_emb_wiggle}
+                            "max_loc_emb_wiggle": max_loc_emb_wiggle,
+                            "ponder_cost": ponder_cost}
         self.CUDA = cuda
         self.random_colour = random_colour
         self.random_bar_width = random_bar_width
@@ -121,7 +124,9 @@ class Guide(nn.Module):
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(lstm_layers, 1, hidden_size), 1))
         self.initial_cell = nn.Parameter(torch.normal(torch.zeros(lstm_layers, 1, hidden_size), 1))
 
-        lstm_input_size = n_queries*d_emb + self.administrator.t_dim
+        self.halting_unit = act.HaltingUnit(hidden_size)
+
+        lstm_input_size = n_queries*d_emb + self.administrator.t_dim + 1    # +1 for ACT bit
         self.lstm = nn.LSTM(input_size=lstm_input_size,
                             hidden_size=hidden_size,
                             num_layers=lstm_layers,
@@ -151,41 +156,31 @@ class Guide(nn.Module):
         self.low_res_emb = low_res_emb
         self.prev_sample_name = None
         self.prev_instance = None
-        self.added_loss = Variable(torch.Tensor([0]))
 
-    def time_step(self, current_sample_name, prev_sample_value):
+    def program_step(self, current_sample_name, prev_sample_value):
         """
         perform one LSTM time step
         returns proposal parameters for `current_sample_name`
         """
-        self.instances_dict[current_sample_name] += 1
-        current_instance = self.instances_dict[current_sample_name]
+        self.current_sample_name = current_sample_name
+        self.prev_sample_value = prev_sample_value
 
-        t = self.administrator.t(current_instance,
+        self.instances_dict[current_sample_name] += 1
+        self.current_instance = self.instances_dict[current_sample_name]
+
+        t = self.administrator.t(self.current_instance,
                                  current_sample_name,
                                  self.prev_instance,
                                  self.prev_sample_name,
                                  prev_sample_value,
                                  self.low_res_emb)
-        queries = self.administrator.get_query_layer(current_sample_name, current_instance)(t=t,
-                                                                                            prev_hidden=self.hidden)
-        if self.attention_tracker is None:
-            attention_output = self.mha(queries, self.keys, self.values).view(1, -1)
-        else:
-            attention_output = self.mha(queries, self.keys, self.values, self.attention_tracker).view(1, -1)
 
-        lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
+        act_output = self.ACT_step(t)
 
-        lstm_output, (hidden, cell) = self.lstm(lstm_input, (self.hidden, self.cell))
-        self.added_loss += loss_term
-        del self.hidden
-        del self.cell
-        self.hidden, self.cell = hidden, cell
-
-        proposal_params = self.administrator.get_proposal_layer(current_sample_name, current_instance)(lstm_output)
+        proposal_params = self.administrator.get_proposal_layer(current_sample_name, self.current_instance)(act_output)
 
         self.prev_sample_name = current_sample_name
-        self.prev_instance = current_instance
+        self.prev_instance = self.current_instance
 
         if self.CUDA:
             try:
@@ -194,7 +189,7 @@ class Guide(nn.Module):
                 proposal_params = tuple(param.cpu() for param in proposal_params)
 
         if self.collect_history:
-            self.history[-1]["{}_{}".format(current_sample_name, current_instance)] = proposal_params
+            self.history[-1]["{}_{}".format(current_sample_name, self.current_instance)] = proposal_params
 
         return proposal_params
 
@@ -202,12 +197,37 @@ class Guide(nn.Module):
         """
         should this exist?
         """
+        self.eps = Variable(torch.Tensor([0.05]))
+        self.remainders = 0
 
-    def ACT(self, t, K, V):
-        pass
+    def ACT_step(self, t):
+        halting_weight_sum = Variable(torch.Tensor([0]))
+        num_steps = 0
+        output = 0
 
-    def lstm_step(self, t, K, V):
-        query_layer = self.administrator.get_query_layer(current_sample_name, current_instance)
+        first_computation_marker = Variable(torch.Tensor([[1]]))
+        while halting_weight_sum < 1 - self.eps:                             # could just say 1 but there may be numerical errors
+            lstm_output = self.lstm_step(t, first_computation_marker)
+
+            halting_weight = self.halting_unit(lstm_output)
+            if halting_weight_sum + halting_weight > 1-self.eps:
+                halting_weight = remainder = 1-halting_weight_sum
+
+            output += halting_weight*lstm_output
+            halting_weight_sum += halting_weight
+
+            first_computation_marker *= 0
+            num_steps += 1
+
+        print("REMAINDER", remainder)
+        self.remainders += remainder
+        return output
+
+    def lstm_step(self, t, first_computation_marker):
+        K = self.keys
+        V = self.values
+        query_layer = self.administrator.get_query_layer(self.current_sample_name, self.current_instance)
+        t = torch.cat([t, first_computation_marker], 1)
         queries = query_layer(t=t, prev_hidden=self.hidden)
 
         if self.attention_tracker is None:
@@ -217,7 +237,6 @@ class Guide(nn.Module):
 
         lstm_input = torch.cat([attention_output, t], 1).view(1, 1, -1)
         lstm_output, (hidden, cell) = self.lstm(lstm_input, (self.hidden, self.cell))
-        self.added_loss += loss_term
         del self.hidden
         del self.cell
         self.hidden, self.cell = hidden, cell
@@ -277,18 +296,19 @@ class Guide(nn.Module):
             self.init_lstm(keys, values, low_res_emb)
         else:
             self.init_lstm(keys, values, None)
+        self.init_ACT()
         prev_sample_value = None
 
         if self.wiggle_picture:
             for shift in ("x_shift", "y_shift"):
-                ps = self.time_step(shift, prev_sample_value)
+                ps = self.program_step(shift, prev_sample_value)
                 prev_sample_value = pyro.sample(shift,
                                                 proposal_dists.categorical_proposal,
                                                 ps=ps).type(torch.FloatTensor)
 
         if self.random_colour:
             for colour in ("red", "green", "blue"):
-                mode, certainty = self.time_step(colour,
+                mode, certainty = self.program_step(colour,
                                                     prev_sample_value)
                 # mode, certainty = modes[0], certainties[0]
                 prev_sample_value = pyro.sample(colour,
@@ -298,7 +318,7 @@ class Guide(nn.Module):
                                                 mode,
                                                 certainty)
         if self.random_bar_width:
-            mode, certainty = self.time_step("bar_width",
+            mode, certainty = self.program_step("bar_width",
                                                 prev_sample_value)
             # mode, certainty = modes[0], certainties[0]
             prev_sample_value = pyro.sample("bar_width",
@@ -309,7 +329,7 @@ class Guide(nn.Module):
                                             certainty)
         if self.random_line_colour:
             for colour in ("red", "green", "blue"):
-                mode, certainty = self.time_step("line_{}".format(colour),
+                mode, certainty = self.program_step("line_{}".format(colour),
                                                     prev_sample_value)
                 # mode, certainty = modes[0], certainties[0]
                 prev_sample_value = pyro.sample("line_{}".format(colour),
@@ -319,7 +339,7 @@ class Guide(nn.Module):
                                                 mode,
                                                 certainty)
         if self.random_line_width:
-            mode, certainty = self.time_step("line_width",
+            mode, certainty = self.program_step("line_width",
                                                 prev_sample_value)
             # mode, certainty = modes[0], certainties[0]
             prev_sample_value = pyro.sample("line_width",
@@ -329,15 +349,15 @@ class Guide(nn.Module):
                                             mode*2.5,
                                             certainty)
 
-        ps = self.time_step("num_bars",
-                            prev_sample_value)
+        ps = self.program_step("num_bars",
+                               prev_sample_value)
         num_bars = pyro.sample("num_bars",
                                 proposal_dists.categorical_proposal,
                                 ps=ps)
         prev_sample_value = num_bars.type(torch.FloatTensor)
 
         for _ in range(num_bars):
-            mode, certainty = self.time_step("bar_height",
+            mode, certainty = self.program_step("bar_height",
                                                 prev_sample_value)
             # mode, certainty = modes[0], certainties[0]
             print(mode.data.numpy()[0])
@@ -349,10 +369,11 @@ class Guide(nn.Module):
                                             certainty)
 
         # a hack to add a term to the loss to limit computation time
+        # TODO: must not happen at inference time or will fuck up weights
         pyro.sample("N/A - Adding Loss Term",   # could this be changed to observe 0? maybe that would stop it showing warnings
                     dist.uniform,
                     Variable(torch.Tensor([0])),
-                    self.added_loss.exp())
+                    self.HYPERPARAMS["ponder_cost"]*self.remainders.exp())
 
         if self.attention_tracker is not None:
             self.attention_tracker.save_graphics()
