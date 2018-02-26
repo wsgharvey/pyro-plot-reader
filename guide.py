@@ -157,6 +157,8 @@ class Guide(nn.Module):
         self.prev_sample_name = None
         self.prev_instance = None
         self.added_loss = Variable(torch.Tensor([0]))
+        if self.CUDA:
+            self.added_loss = self.added_loss.cuda()
 
     def program_step(self, current_sample_name, prev_sample_value):
         """
@@ -199,6 +201,8 @@ class Guide(nn.Module):
         should this exist?
         """
         self.eps = Variable(torch.Tensor([0.05]))
+        if self.cuda:
+            self.eps = self.eps.cuda()
         self.remainders = 0
 
     def ACT_step(self, t):
@@ -207,6 +211,9 @@ class Guide(nn.Module):
         output = 0
 
         first_computation_marker = Variable(torch.Tensor([[1]]))
+        if self.cuda:
+            first_computation_marker = first_computation_marker.cuda()
+            halting_weight_sum = halting_weight_sum.cuda()
         while halting_weight_sum < 1 - self.eps:                             # could just say 1 but there may be numerical errors
             lstm_output = self.lstm_step(t, first_computation_marker)
 
@@ -219,8 +226,6 @@ class Guide(nn.Module):
 
             first_computation_marker *= 0
             num_steps += 1
-
-        print("REMAINDER", remainder)
         self.remainders += remainder
         return output
 
@@ -361,7 +366,6 @@ class Guide(nn.Module):
             mode, certainty = self.program_step("bar_height",
                                                 prev_sample_value)
             # mode, certainty = modes[0], certainties[0]
-            print(mode.data.numpy()[0])
             prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
@@ -371,10 +375,12 @@ class Guide(nn.Module):
 
         # a hack to add a term to the loss to limit computation time
         # TODO: must not happen at inference time or will fuck up weights
+        if self.cuda:
+            self.remainders = self.remainders.cpu()
         pyro.sample("N/A - Adding Loss Term",   # could this be changed to observe 0? maybe that would stop it showing warnings
                     dist.uniform,
                     Variable(torch.Tensor([0])),
-                    self.HYPERPARAMS["ponder_cost"]*self.remainders.exp())
+                    (self.HYPERPARAMS["ponder_cost"]*self.remainders).exp())
 
         if self.attention_tracker is not None:
             self.attention_tracker.save_graphics()
