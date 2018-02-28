@@ -66,7 +66,7 @@ class PersistentArtifact(object):
                       "attention_graphics": attention_graphics_path,
                       "posterior_videos": posterior_videos_path}
 
-    def compile(self, N_STEPS, CUDA=False):
+    def compile(self, N_STEPS, CUDA=False, steps_per_batch=500):
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = CUDA
         guide = Guide(**guide_kwargs)
@@ -76,13 +76,12 @@ class PersistentArtifact(object):
         except:
             pass
 
-        optim = torch.optim.Adam(guide.parameters(), **self.optimiser_kwargs)
-
         csis = CSIS(model=Model(**self.model_kwargs),
                     guide=guide,
                     num_samples=1)
         csis.set_model_args()
         csis.set_compiler_args(**self.compiler_kwargs)
+        csis.optim = torch.optim.Adam(guide.parameters(), **self.optimiser_kwargs)
 
         # Force validation batch to be created with a certain random seed
         rng_state = torch.get_rng_state()
@@ -91,9 +90,11 @@ class PersistentArtifact(object):
         torch.set_rng_state(rng_state)
 
         csis.iterations = self.training_steps
-        csis.compile(optim, num_steps=N_STEPS, cuda=CUDA)
-
-        torch.save(guide.state_dict(), self.paths["weights"])
+        desired_steps = self.training_steps + N_STEPS
+        while csis.iterations < desired_steps:
+            csis.compile(num_steps=min(steps_per_batch, desired_steps-csis.iterations), cuda=CUDA)
+            optim = csis.get_last_optim()
+            torch.save(guide.state_dict(), self.paths["weights"])
 
         validation_log = csis.get_compile_log()["validation"]
         self.validation_losses.extend(validation_log)

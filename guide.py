@@ -211,15 +211,17 @@ class Guide(nn.Module):
         output = 0
 
         first_computation_marker = Variable(torch.Tensor([[1]]))
+        last_computation_step = False
         if self.cuda:
             first_computation_marker = first_computation_marker.cuda()
             halting_weight_sum = halting_weight_sum.cuda()
-        while halting_weight_sum < 1 - self.eps:                             # could just say 1 but there may be numerical errors
+        while not last_computation_step:                             # could just say 1 but there may be numerical errors
             lstm_output = self.lstm_step(t, first_computation_marker)
 
             halting_weight = self.halting_unit(lstm_output)
             if halting_weight_sum + halting_weight > 1-self.eps:
                 halting_weight = remainder = 1-halting_weight_sum
+                last_computation_step = True
 
             output += halting_weight*lstm_output
             halting_weight_sum += halting_weight
@@ -227,6 +229,7 @@ class Guide(nn.Module):
             first_computation_marker *= 0
             num_steps += 1
         self.remainders += remainder
+        print(num_steps)
         return output
 
     def lstm_step(self, t, first_computation_marker):
