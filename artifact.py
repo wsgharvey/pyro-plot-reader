@@ -91,7 +91,7 @@ class PersistentArtifact(object):
         torch.set_rng_state(rng_state)
 
         csis.iterations = self.training_steps
-        csis.compile(optim, num_steps=N_STEPS, cuda=CUDA)
+        csis.compile(optim=optim, num_steps=N_STEPS, cuda=CUDA)
 
         torch.save(guide.state_dict(), self.paths["weights"])
 

@@ -35,13 +35,13 @@ class Model(object):
         height, width = 200, 200
 
         if self.wiggle_picture:
-            x_shift = pyro.sample("x_shift",
-                                  dist.categorical,
-                                  ps=Variable(torch.ones(max_translation))).data.numpy()[0]
+            x_shift = int(pyro.sample("x_shift",
+                                      dist.categorical,
+                                      ps=Variable(torch.ones(max_translation))))
 
-            y_shift = pyro.sample("y_shift",
-                                  dist.categorical,
-                                  ps=Variable(torch.ones(max_translation))).data.numpy()[0]
+            y_shift = int(pyro.sample("y_shift",
+                                      dist.categorical,
+                                      ps=Variable(torch.ones(max_translation))))
         else:
             x_shift, y_shift = 0, 0
 
@@ -79,10 +79,9 @@ class Model(object):
         else:
             rgb_colour = (0.2, 0.2, 0.8)
 
-        num_bars = pyro.sample("num_bars",
-                               dist.categorical,
-                               ps=Variable(torch.Tensor(np.array([0., 0., 1., 1., 1.])/3)))
-        num_bars = num_bars.data.numpy()[0]
+        num_bars = int(pyro.sample("num_bars",
+                                   dist.categorical,
+                                   ps=Variable(torch.Tensor(np.array([0., 0., 1., 1., 1.])/3))))
 
         bar_heights = []
         for bar_num in range(num_bars):
