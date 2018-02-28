@@ -53,7 +53,7 @@ for trace in inference_log:
             mode, certainty = proposal_params
             proposal_dist = UniformProposal(Variable(torch.Tensor([0.])),
                                             Variable(torch.Tensor([10.])),
-                                            mode,
+                                            mode*10,
                                             certainty)
             log_pdf += proposal_dist.log_prob(Variable(torch.Tensor([true_value])))
             num_bars += 1
