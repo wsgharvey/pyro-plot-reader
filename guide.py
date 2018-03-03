@@ -215,11 +215,12 @@ class Guide(nn.Module):
         if self.cuda:
             first_computation_marker = first_computation_marker.cuda()
             halting_weight_sum = halting_weight_sum.cuda()
-        while not last_computation_step:                             # could just say 1 but there may be numerical errors
+        while not last_computation_step:
+            num_steps += 1
             lstm_output = self.lstm_step(t, first_computation_marker)
 
             halting_weight = self.halting_unit(lstm_output)
-            if halting_weight_sum + halting_weight > 1-self.eps:
+            if halting_weight_sum + halting_weight > 1-self.eps or num_steps >= 10:
                 halting_weight = remainder = 1-halting_weight_sum
                 last_computation_step = True
 
@@ -227,7 +228,6 @@ class Guide(nn.Module):
             halting_weight_sum += halting_weight
 
             first_computation_marker *= 0
-            num_steps += 1
         self.remainders += remainder
         print(num_steps)
         return output
