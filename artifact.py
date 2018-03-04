@@ -92,15 +92,16 @@ class PersistentArtifact(object):
         csis.iterations = self.training_steps
 
         desired_steps = self.training_steps + N_STEPS
-        while csis.iterations < desired_steps:
-            csis.compile(num_steps=min(steps_per_batch, desired_steps-csis.iterations), cuda=CUDA)
-            optim = csis.get_last_optim()
+        while csis.iterations < desired_steps: 
+            step_batch_size = min(steps_per_batch, desired_steps-csis.iterations)
+            csis.compile(num_steps=step_batch_size, cuda=CUDA) 
             torch.save(guide.state_dict(), self.paths["weights"]) 
+            self.training_steps += step_batch_size
+            self.save()
 
         validation_log = csis.get_compile_log()["validation"]
         self.validation_losses.extend(validation_log)
 
-        self.training_steps += N_STEPS
         self.save()
 
     def infer(self,
