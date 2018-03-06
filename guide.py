@@ -229,7 +229,7 @@ class Guide(nn.Module):
 
             first_computation_marker *= 0
         self.remainders += remainder
-        print(num_steps)
+        print(self.current_sample_name, num_steps)
         return output
 
     def lstm_step(self, t, first_computation_marker):

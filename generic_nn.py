@@ -56,7 +56,7 @@ class Administrator(nn.Module):
                                                HYPERPARAMS["d_emb"])
                                               for address in self.sample_statements.values()])
         else:
-            self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim+1,                          # +1 for first computation bit
+            self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,                          # +1 for first computation bit
                                                                          HYPERPARAMS["hidden_size"],
                                                                          HYPERPARAMS["n_queries"],
                                                                          HYPERPARAMS["d_emb"])
