@@ -51,9 +51,9 @@ class ScoreKeeper(object):
     def __init__(self):
         self.scores = {}
 
-    def add_score(self, architecture, dataset, score):
+    def add_score(self, architecture, dataset, entry):
         if architecture not in self.scores:
             self.scores[architecture] = {}
         if dataset not in self.scores[architecture]:
             self.scores[architecture][dataset] = []
-        self.scores[architecture][dataset].append(score)
+        self.scores[architecture][dataset].append(entry)
