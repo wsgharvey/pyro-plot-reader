@@ -121,6 +121,62 @@ class CNNEmbedder2(nn.Module):
         return x
 
 
+class CNNEmbedder3(nn.Module):
+    """
+    CNN embedder with more parameters (about 15m)
+    """
+    def __init__(self, d_emb):
+        super(CNNEmbedder2, self).__init__()
+        self.d_emb = d_emb
+
+        self.conv1 = nn.Conv2d(3, 16, 3, padding=1)
+        self.conv2 = nn.Conv2d(16, 32, 3, padding=1, stride=2)
+
+        self.conv3 = nn.Conv2d(32, 64, 3, padding=1)
+        self.conv4 = nn.Conv2d(64, 128, 3, padding=1, stride=2)
+
+        self.conv5 = nn.Conv2d(128, 128, 3, padding=1)
+        self.conv6 = nn.Conv2d(128, 256, 3, padding=1, stride=2)
+
+        self.conv7 = nn.Conv2d(256, 256, 3, padding=1)
+        self.conv8 = nn.Conv2d(256, 256, 3, padding=1, stride=2)
+
+        self.conv9 = nn.Conv2d(256, 256, 3, padding=1)
+        self.conv10 = nn.Conv2d(256, 512, 3, padding=1, stride=2)
+
+        self.conv11 = nn.Conv2d(512, 512, 3, padding=1)
+        self.conv12 = nn.Conv2d(512, 512, 3, stride=2)
+
+        self.conv13 = nn.Conv2d(512, 512, 3, padding=1)
+        self.conv14 = nn.Conv2d(512, d_emb, 3)
+
+    def forward(self, x):
+        x = x.view(1, 3, 210, 210)          # 210x210
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))           # 105x105
+
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))           # 53x53
+
+        x = F.relu(self.conv5(x))
+        x = F.relu(self.conv6(x))           # 27x27
+
+        x = F.relu(self.conv7(x))
+        x = F.relu(self.conv8(x))           # 14x14
+
+        x = F.relu(self.conv9(x))
+        x = F.relu(self.conv10(x))          # 7x7
+
+        x = F.relu(self.conv11(x))
+        x = F.relu(self.conv12(x))          # 3x3
+
+        x = F.relu(self.conv13(x))
+        x = F.relu(self.conv14(x))
+
+        x = x.view(-1, self.d_emb)
+        return x
+
+
 class Guide(nn.Module):
     def __init__(self,
                  d_emb=128,
@@ -137,7 +193,7 @@ class Guide(nn.Module):
                  random_line_colour=True,
                  random_line_width=True,
                  collect_history=False,
-                 cnn_number=2):
+                 cnn_number=3):
 
         super(Guide, self).__init__()
 
