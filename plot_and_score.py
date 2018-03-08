@@ -9,6 +9,7 @@ from file_paths import DATASET_FOLDER
 from artifact import PersistentArtifact
 import argparse
 
+import datetime
 import pickle
 import numpy as np
 
@@ -66,5 +67,6 @@ mean_log_pdf = log_pdf / num_bars
 
 if args.L is not None:
     scores = pickle.load(open(args.L, 'rb'))
-    scores.add_score(args.architecture, args.dataset, mean_log_pdf)
+    time_string = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M")
+    scores.add_score(args.architecture, args.dataset, (args.artifact, mean_log_pdf, time_string))
     pickle.dump(scores, open(args.L, 'wb'))
