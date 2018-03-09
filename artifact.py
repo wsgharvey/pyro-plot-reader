@@ -231,6 +231,8 @@ class PersistentArtifact(object):
         new.save()
 
     @staticmethod
-    def load(name):
-        path = "{}/{}/artifact.p".format(ARTIFACT_FOLDER, name)
+    def load(name, artifact_folder=None):
+        if artifact_folder is None:
+            artifact_folder = ARTIFACT_FOLDER
+        path = "{}/{}/artifact.p".format(artifact_folder, name)
         return pickle.load(open(path, "rb"))
