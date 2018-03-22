@@ -33,9 +33,8 @@ class Administrator(nn.Module):
         self.sample_statements = OrderedDict(sample_statements)
         self.dists = list(set([address["dist"] for address in sample_statements.values()]))
         self.max_instances = max(v["instances"] for v in sample_statements.values())
-        self.t_dim = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists) + self.max_instances
-        if self.HYPERPARAMS["use_low_res_view"] and not self.HYPERPARAMS["low_res_view_as_attention_loc"]:
-            self.t_dim += self.HYPERPARAMS["low_res_emb_size"]
+        self.t_dim_with_low_res = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists) + self.max_instances + self.HYPERPARAMS["low_res_emb_size"]
+        self.t_dim_without_low_res = HYPERPARAMS["smp_emb_dim"] + 2*len(self.sample_statements) + 2*len(self.dists) + self.max_instances
 
         if HYPERPARAMS["share_prop_layer"]:
             self.proposal_layers = nn.ModuleList([proposal_layer(address["dist"],
@@ -49,17 +48,8 @@ class Administrator(nn.Module):
                                                                  for _ in range(address["instances"])])
                                                   for address in self.sample_statements.values()])
 
-        if HYPERPARAMS["share_qry_layer"]:
-            self.query_layers = nn.ModuleList([QueryLayer(self.t_dim,
-                                               HYPERPARAMS["hidden_size"],
-                                               HYPERPARAMS["n_queries"],
-                                               HYPERPARAMS["d_emb"])
-                                              for address in self.sample_statements.values()])
-        else:
-            self.query_layers = nn.ModuleList([nn.ModuleList([QueryLayer(self.t_dim,
-                                                                         HYPERPARAMS["hidden_size"],
-                                                                         HYPERPARAMS["n_queries"],
-                                                                         HYPERPARAMS["d_emb"])
+        self.transform_layers = nn.ModuleList([nn.ModuleList([TransformLayer(self.t_dim_with_low_res,
+                                                                         HYPERPARAMS["hidden_size"])
                                                               for _ in range(address["instances"])])
                                                for address in self.sample_statements.values()])
 
@@ -91,12 +81,9 @@ class Administrator(nn.Module):
         else:
             return self.sample_embedders[address_index][instance]
 
-    def get_query_layer(self, address, instance):
+    def get_transform_layer(self, address, instance):
         address_index = self._get_address_index(address)
-        if self.HYPERPARAMS["share_qry_layer"]:
-            return self.query_layers[address_index]
-        else:
-            return self.query_layers[address_index][instance]
+        return self.transform_layers[address_index][instance]
 
     def one_hot_address(self, address):
         one_hot = Variable(torch.zeros(1, len(self.sample_statements)))
@@ -157,6 +144,11 @@ class Administrator(nn.Module):
             t = torch.cat([t, low_res_emb], 1)
         return t
 
+        @staticmethod
+        def remove_low_res_emb(t):
+            low_res_emb_size = self.HYPERPARAMS["low_res_emb_size"]
+            return t[:-low_res_emb_size]
+
 
 # TODO: move SampleEmbedder and QueryLayer
 class SampleEmbedder(nn.Module):
@@ -169,19 +161,36 @@ class SampleEmbedder(nn.Module):
         return F.relu(self.fcn(x))
 
 
-class QueryLayer(nn.Module):
-    def __init__(self, t_dim, hidden_size, n_queries, d_model):
-        super(QueryLayer, self).__init__()
-        self.n_queries = n_queries
-        self.d_model = d_model
-        self.fcn1 = nn.Linear(t_dim+hidden_size, n_queries*d_model)
-        self.fcn2 = nn.Linear(n_queries*d_model, n_queries*d_model)
+class TransformLayer(nn.Module):
+    def __init__(self, t_dim_with_low_res, hidden_size):
+        super(TransformLayer, self).__init__()
+        self.fcn1 = nn.Linear(t_dim_with_low_res+hidden_size, 64)
+        self.fcn2 = nn.Linear(64, 6)
+
+        # set transform to be identity transform at first
+        self.fcn2.weight.data.fill_(0)
+        self.fcn2.bias.data = torch.FloatTensor([1, 0, 0, 0, 1, 0])
 
     def forward(self, t, prev_hidden):
         prev_hidden = prev_hidden[-1, :, :]
         t = t.view(1, -1)
         prev_hidden = prev_hidden.view(1, -1)
         x = torch.cat((t, prev_hidden), 1)
-        x = self.fcn2(F.relu(self.fcn1(x)))
-        x = x.view(self.n_queries, self.d_model)
+        theta = self.fcn2(F.relu(self.fcn1(x)))
+        theta = theta.view(-1, 2, 3)
+
+        grid = F.affine_grid(theta, torch.Size((1, 3, 210, 210)))
+
+        return grid, theta
+
+
+class TransformEmbedder(nn.Module):
+    def __init__(self, output_dim):
+        super(TransformEmbedder, self).__init__()
+        self.fcn1 = nn.Linear(6, 32)
+        self.fcn2 = nn.Linear(32, output_dim)
+
+    def forward(self, theta):
+        theta = theta.view(-1, 6)
+        x = self.fcn2(F.relu(self.fcn1(theta)))
         return x
