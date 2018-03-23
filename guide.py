@@ -94,8 +94,7 @@ class Guide(nn.Module):
                                            self.HYPERPARAMS)
 
         self.view_embedder = ViewEmbedder(output_dim=view_emb_dim)
-        if use_low_res_view:
-            self.low_res_embedder = FullViewEmbedder(output_dim=low_res_emb_size)
+        self.low_res_embedder = FullViewEmbedder(output_dim=low_res_emb_size)
         self.transform_embedder = TransformEmbedder(output_dim=transform_emb_size)
 
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(lstm_layers, 1, hidden_size), 1))
