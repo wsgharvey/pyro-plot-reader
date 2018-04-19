@@ -4,6 +4,8 @@ from torch.autograd import Variable
 import pyro
 from pyro.infer import CSIS, Marginal
 import pyro.distributions as dist
+from pyro.poutine.trace import Trace
+import pyro.poutine as poutine
 
 from model import Model
 from guide import Guide
@@ -13,6 +15,7 @@ from helpers import image2variable
 
 from PIL import Image
 import numpy as np
+from scipy.special import logsumexp
 
 import pickle
 import os
@@ -106,6 +109,10 @@ class PersistentArtifact(object):
               max_plots=np.inf,
               cuda=False):
         test_folder = "{}/{}/test".format(DATASET_FOLDER, dataset_name)
+        target = []
+        with open("{}/targets.csv".format(test_folder), 'r') as f:
+            ground_truths = f.read().splitlines()
+            ground_truths = [[float(number) for number in line.split(",")] for line in ground_truths]
 
         subprocess.check_call(["rm", "-f",
                                "{}/*".format(self.paths["attention_graphics"])])
@@ -117,26 +124,29 @@ class PersistentArtifact(object):
         guide = Guide(**guide_kwargs)
         guide.load_state_dict(torch.load(self.paths["weights"]))
 
-        csis = CSIS(model=Model(**self.model_kwargs),
-                    guide=guide,
-                    num_samples=1)
-        csis.set_model_args()
-        marginal = Marginal(csis)
-
         img_no = 0
+        dataset_log_pdf = 0
         while img_no < max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
             print("running inference no.", img_no)
             image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
             image = image2variable(image)
-            weighted_traces = marginal.trace_dist._traces(observed_image=image)
-            for trace, log_weight in weighted_traces:
-                pass
+
+            true_data = ground_truths[img_no]
+            num_bars = len(true_data)
+
+            log_pdfs = []
+            T = 10
+            for t in range(T):
+                log_pdfs.append(self.log_pdf(num_bars, true_data, guide, observed_image=image).data.numpy())
+            log_pdf = logsumexp(log_pdfs) - np.log(T)
+
+            dataset_log_pdf += log_pdf
             img_no += 1
         
         inference_log = guide.get_history()
 
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
-        return inference_log
+        return dataset_log_pdf
 
     def make_posterior_videos(self,
                               dataset_name,
@@ -206,6 +216,45 @@ class PersistentArtifact(object):
                                    self.paths[path_name],
                                    new.paths[path_name]])
         new.save()
+
+    def log_pdf(self, num_bars, bar_heights, guide, *args, **kwargs):
+        """ assesses log prob of the guide on a set of samples
+        """
+        # make model trace
+        ground_truth_trace = Trace()
+        ground_truth_trace.add_node("num_bars",
+                                    type="sample",
+                                    name="num_bars",
+                                    is_observed=False,
+                                    value=Variable(torch.Tensor([num_bars])).type(torch.IntTensor),
+                                    args=(), kwargs={})
+        for i, bar_height in enumerate(bar_heights):
+            ground_truth_trace.add_node("bar_height_{}".format(i),
+                                        type="sample",
+                                        name="num_bars",
+                                        is_observed=False,
+                                        value=Variable(torch.Tensor([bar_height])),
+                                        args=(), kwargs={})
+
+        # run guide against trace
+        guide_trace = poutine.trace(
+            poutine.replay(guide, ground_truth_trace)).get_trace(*args, **kwargs)   # does observed_image go into kwargs?
+
+        # calculate log pdf of every sample in guide)
+        guide_trace.log_pdf()
+
+        # sum log pdf of relevant samples
+        num_bars_log_pdf = 0
+        bar_heights_log_pdf = 0
+        observes_log_pdf = 0
+        for name, site in guide_trace.nodes.items():
+            if name == "num_bars":
+                num_bars_log_pdf += site["log_pdf"]
+            if name[:9] == "bar_height":
+                bar_heights_log_pdf += site["log_pdf"]
+            if site['type'] == 'observe':
+                observes_log_pdf += site["log_pdf"]
+        return num_bars_log_pdf + bar_heights_log_pdf + observes_log_pdf
 
     @staticmethod
     def load(name, artifact_folder=None):
