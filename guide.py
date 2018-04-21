@@ -47,6 +47,7 @@ class Guide(nn.Module):
                  random_bar_width=True,
                  random_line_colour=True,
                  random_line_width=True,
+                 scale="fixed",
                  attention_graphics_path=None,
                  collect_history=False):
 
@@ -78,6 +79,7 @@ class Guide(nn.Module):
         self.random_line_colour = random_line_colour
         self.random_line_width = random_line_width
         self.wiggle_picture = wiggle_picture
+        self.scale = scale
 
         self.sample_statements = {"num_bars":   {"instances": 1,
                                                  "dist": dist.categorical,
@@ -90,6 +92,16 @@ class Guide(nn.Module):
                               "output_dim": 10}
                       for shift in ("x_shift", "y_shift")}
             self.sample_statements.update(shifts)
+        if scale == "discrete":
+            self.sample_statements.update({"max_height": {"instances": 1,
+                                                          "dist": dist.categorical,
+                                                          "output_dim": 3}})
+        elif scale == "continuous":
+            self.sample_statements.update({"max_height": {"instances": 1,
+                                                          "dist": dist.uniform}})
+        else:
+            assert scale == "fixed", "scale argument given is invalid"
+
         if random_colour:
             colour_samples = {col: {"instances": 1,
                                     "dist": dist.uniform}
@@ -258,6 +270,20 @@ class Guide(nn.Module):
                 prev_sample_value = pyro.sample(shift,
                                                 proposal_dists.categorical_proposal,
                                                 ps=ps).type(torch.FloatTensor)
+
+        if self.scale == "discrete":
+            ps = self.time_step("max_height", prev_sample_value)
+            prev_sample_value = pyro.sample("max_height",
+                                            proposal_dists.categorical_proposal,
+                                            ps=ps).type(torch.FloatTensor)
+        elif self.scale == "continuous":
+            mode, certainty = self.time_step("max_height", prev_sample_value)
+            prev_sample_value = pyro.sample("max_height",
+                                            proposal_dists.uniform_proposal,
+                                            Variable(torch.Tensor([0])),
+                                            Variable(torch.Tensor([0])),
+                                            mode,
+                                            certainty)
 
         if self.random_colour:
             for colour in ("red", "green", "blue"):
