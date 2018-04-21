@@ -200,8 +200,7 @@ class Guide(nn.Module):
         if self.random_colour:
             for colour in ("red", "green", "blue"):
                 mode, certainty = self.time_step(colour,
-                                                    prev_sample_value)
-                # mode, certainty = modes[0], certainties[0]
+                                                 prev_sample_value)
                 prev_sample_value = pyro.sample(colour,
                                                 proposal_dists.uniform_proposal,
                                                 Variable(torch.Tensor([0])),
@@ -210,8 +209,7 @@ class Guide(nn.Module):
                                                 certainty)
         if self.random_bar_width:
             mode, certainty = self.time_step("bar_width",
-                                                prev_sample_value)
-            # mode, certainty = modes[0], certainties[0]
+                                             prev_sample_value)
             prev_sample_value = pyro.sample("bar_width",
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
@@ -221,7 +219,7 @@ class Guide(nn.Module):
         if self.random_line_colour:
             for colour in ("red", "green", "blue"):
                 mode, certainty = self.time_step("line_{}".format(colour),
-                                                    prev_sample_value)
+                                                 prev_sample_value)
                 # mode, certainty = modes[0], certainties[0]
                 prev_sample_value = pyro.sample("line_{}".format(colour),
                                                 proposal_dists.uniform_proposal,
@@ -231,7 +229,7 @@ class Guide(nn.Module):
                                                 certainty)
         if self.random_line_width:
             mode, certainty = self.time_step("line_width",
-                                                prev_sample_value)
+                                             prev_sample_value)
             # mode, certainty = modes[0], certainties[0]
             prev_sample_value = pyro.sample("line_width",
                                             proposal_dists.uniform_proposal,
@@ -249,7 +247,7 @@ class Guide(nn.Module):
 
         for _ in range(num_bars):
             mode, certainty = self.time_step("bar_height",
-                                                prev_sample_value)
+                                             prev_sample_value)
             # mode, certainty = modes[0], certainties[0]
             print(mode.data.numpy()[0])
             prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
