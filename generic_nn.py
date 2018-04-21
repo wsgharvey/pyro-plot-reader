@@ -119,7 +119,8 @@ class Administrator(nn.Module):
                            self.one_hot_address(current_sample_name),
                            self.one_hot_distribution(current_sample_name),
                            self.one_hot_instance(current_instance),
-                           self.first_sample_embedding], 1)
+                           self.first_sample_embedding], 1) 
+
         else:
             if self.HYPERPARAMS["CUDA"]:
                 prev_sample_value = prev_sample_value.cuda()
@@ -128,7 +129,7 @@ class Administrator(nn.Module):
                            self.one_hot_address(current_sample_name),
                            self.one_hot_distribution(current_sample_name),
                            self.one_hot_instance(current_instance),
-                           self.get_sample_embedder(prev_sample_name, prev_instance)(prev_sample_value)], 1)
+                           self.get_sample_embedder(prev_sample_name, prev_instance)(prev_sample_value)], 1) 
         return t
 
 

@@ -126,7 +126,7 @@ class CNNEmbedder3(nn.Module):
     CNN embedder with more parameters (about 15m)
     """
     def __init__(self, d_emb):
-        super(CNNEmbedder2, self).__init__()
+        super(CNNEmbedder3, self).__init__()
         self.d_emb = d_emb
 
         self.conv1 = nn.Conv2d(3, 16, 3, padding=1)
@@ -243,7 +243,7 @@ class Guide(nn.Module):
         self.administrator = Administrator(self.sample_statements,
                                            self.HYPERPARAMS)
 
-        self.obs_embedder = (CNNEmbedder, CNNEmbedder2)[cnn_number-1](d_emb)
+        self.obs_embedder = (CNNEmbedder, CNNEmbedder2, CNNEmbedder3)[cnn_number-1](d_emb)
 
         self.initial_hidden = nn.Parameter(torch.normal(torch.zeros(lstm_layers, 1, hidden_size), 1))
         self.initial_cell = nn.Parameter(torch.normal(torch.zeros(lstm_layers, 1, hidden_size), 1))
@@ -293,7 +293,7 @@ class Guide(nn.Module):
         del self.cell
         self.hidden, self.cell = hidden, cell
 
-        proposal_params = self.administrator.get_proposal_layer(current_sample_name, current_instance)(lstm_output)
+        proposal_params = self.administrator.get_proposal_layer(current_sample_name, current_instance)(lstm_output) 
 
         self.prev_sample_name = current_sample_name
         self.prev_instance = current_instance
@@ -384,7 +384,7 @@ class Guide(nn.Module):
             mode, certainty = self.time_step("bar_height",
                                                 prev_sample_value)
             # mode, certainty = modes[0], certainties[0]
-            print(mode.data.numpy()[0])
+            print("bar height mode", mode.data.numpy()[0])
             prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
