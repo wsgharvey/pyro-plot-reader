@@ -248,7 +248,6 @@ class Guide(nn.Module):
         for _ in range(num_bars):
             mode, certainty = self.time_step("bar_height",
                                              prev_sample_value)
-            # mode, certainty = modes[0], certainties[0]
             print(mode.data.numpy()[0])
             prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
                                             proposal_dists.uniform_proposal,
