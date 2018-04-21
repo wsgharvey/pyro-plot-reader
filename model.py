@@ -21,12 +21,14 @@ class Model(object):
                  random_bar_width=True,
                  random_line_colour=True,
                  random_line_width=True,
-                 wiggle_picture=False):
+                 wiggle_picture=False,
+                 scale="fixed"):
         self.random_colour = random_colour
         self.random_bar_width = random_bar_width
         self.random_line_colour = random_line_colour
         self.random_line_width = random_line_width
         self.wiggle_picture = wiggle_picture
+        self.scale = scale
 
     def __call__(self, observed_image=Variable(torch.zeros(200, 200))):
         max_height = 10
@@ -44,6 +46,23 @@ class Model(object):
                                       ps=Variable(torch.ones(max_translation))))
         else:
             x_shift, y_shift = 0, 0
+
+        if self.scale == "fixed":
+            max_height = 10
+        elif self.scale == "discrete":
+            max_heights = [10, 50, 100]
+            index = pyro.sample("max_height",
+                                dist.categorical,
+                                ps=Variable(torch.ones(3)))
+            max_height = max_heights[index]
+        elif self.scale == "continuous":
+            max_max_height = 100
+            max_height = pyro.sample("max_height",
+                                     dist.uniform,
+                                     Variable(torch.Tensor([0])),
+                                     Variable(torch.Tensor([max_max_height]))).data.numpy()[0]
+        else:
+            raise Exception("scale argument not valid")
 
         if self.random_line_width:
             line_width = pyro.sample("line_width",
