@@ -54,7 +54,7 @@ class Model(object):
             index = pyro.sample("max_height",
                                 dist.categorical,
                                 ps=Variable(torch.ones(3)))
-            max_height = max_heights[index]
+            max_height = max_heights[int(index.data.numpy()[0])]
         elif self.scale == "continuous":
             max_max_height = 100
             max_height = pyro.sample("max_height",
