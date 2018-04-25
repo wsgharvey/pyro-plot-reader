@@ -23,7 +23,7 @@ class Guide(nn.Module):
                  smp_emb_dim=32,
                  n_attention_heads=4,
                  lstm_dropout=0.1,
-                 use_low_res_view=True,
+                 use_low_res_view=False,
                  # low res is always used to select transform - this option lets you decide whether to also use it as an addtional input to LSTM
                  low_res_view_as_attention_loc=False,
                  low_res_emb_size=128,
