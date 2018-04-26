@@ -39,11 +39,17 @@ else:
     compiler_kwargs = {}
     optimiser_kwargs = {}
 
-model_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.m)}
-guide_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.g)}
-model_and_guide_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.mg)}
-compiler_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.c)}
-optimiser_kwarg_changes = {k: eval(v) for k, v in map(lambda x: x.split("="), args.o)}
+def string_eval(v):
+    try:
+        return eval(v)
+    except:
+        return v
+
+model_kwarg_changes = {k: string_eval(v) for k, v in map(lambda x: x.split("="), args.m)}
+guide_kwarg_changes = {k: string_eval(v) for k, v in map(lambda x: x.split("="), args.g)}
+model_and_guide_kwarg_changes = {k: string_eval(v) for k, v in map(lambda x: x.split("="), args.mg)}
+compiler_kwarg_changes = {k: string_eval(v) for k, v in map(lambda x: x.split("="), args.c)}
+optimiser_kwarg_changes = {k: string_eval(v) for k, v in map(lambda x: x.split("="), args.o)}
 
 model_kwargs.update(model_kwarg_changes)
 guide_kwargs.update(guide_kwarg_changes)
