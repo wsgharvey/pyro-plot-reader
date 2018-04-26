@@ -107,6 +107,7 @@ class PersistentArtifact(object):
     def infer(self,
               dataset_name,
               attention_plots=True,
+              start_no=0,
               max_plots=np.inf,
               cuda=False):
         test_folder = "{}/{}/test".format(DATASET_FOLDER, dataset_name)
@@ -129,9 +130,9 @@ class PersistentArtifact(object):
         guide = Guide(**guide_kwargs)
         guide.load_state_dict(torch.load(self.paths["weights"]))
 
-        img_no = 0
+        img_no = start_no
         dataset_log_pdf = 0
-        while img_no < max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
+        while img_no < start_no + max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
             print("running inference no.", img_no)
             image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
             image = image2variable(image)

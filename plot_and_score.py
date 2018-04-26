@@ -29,10 +29,14 @@ args = parser.parse_args()
 print("CUDA:", bool(args.cuda))
 
 artifact = PersistentArtifact.load(args.artifact)
-log_pdf = artifact.infer(args.dataset,
-                         attention_plots=True,
-                         cuda=bool(args.cuda),
-                         max_plots=args.N)
+
+log_pdf = 0
+for start_no in range(0, 100, 10):
+    log_pdf += artifact.infer(args.dataset,
+                              attention_plots=True,
+                              start_no=start_no,
+                              cuda=bool(args.cuda),
+                              max_plots=10)
 
 targets_file = open("{}/{}/test/targets.csv".format(DATASET_FOLDER, args.dataset), 'r')
 
@@ -41,5 +45,5 @@ print(log_pdf)
 if args.L is not None:
     scores = pickle.load(open(args.L, 'rb'))
     time_string = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M")
-    scores.add_score(args.architecture, args.dataset, (args.artifact, mean_log_pdf, time_string))
+    scores.add_score(args.architecture, args.dataset, (args.artifact, log_pdf, time_string))
     pickle.dump(scores, open(args.L, 'wb'))
