@@ -1,2 +1,2 @@
-DATASET_FOLDER = "/scratch/wsgh/plot-reader/datasets"
+DATASET_FOLDER = "data"
 ARTIFACT_FOLDER = "artifacts"
