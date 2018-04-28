@@ -209,11 +209,14 @@ class Guide(nn.Module):
                                                 proposal_dists.categorical_proposal,
                                                 ps=ps).type(torch.FloatTensor)
 
+        max_max_height = 100
         if self.scale == "discrete":
             ps = self.time_step("max_height", prev_sample_value)
             prev_sample_value = pyro.sample("max_height",
                                             proposal_dists.categorical_proposal,
                                             ps=ps).type(torch.FloatTensor)
+            max_height = 100
+
         elif self.scale == "continuous":
             mode, certainty = self.time_step("max_height", prev_sample_value)
             prev_sample_value = pyro.sample("max_height",
@@ -222,6 +225,11 @@ class Guide(nn.Module):
                                             Variable(torch.Tensor([0])),
                                             mode,
                                             certainty)
+
+            max_height = 100
+        else:
+            max_height = 10
+
 
         if self.random_colour:
             for colour in ("red", "green", "blue"):
@@ -277,9 +285,9 @@ class Guide(nn.Module):
             print(mode.data.numpy()[0])
             prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
                                             proposal_dists.uniform_proposal,
-                                            Variable(torch.Tensor([0])),
-                                            Variable(torch.Tensor([10])),
-                                            mode*10,
+                                            Variable(torch.Tensor([0])), 
+                                            Variable(torch.Tensor([max_height])),
+                                            mode*max_height, 
                                             certainty)
 
         if self.attention_tracker is not None:
