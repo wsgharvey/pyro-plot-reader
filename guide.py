@@ -215,16 +215,19 @@ class Guide(nn.Module):
             prev_sample_value = pyro.sample("max_height",
                                             proposal_dists.categorical_proposal,
                                             ps=ps).type(torch.FloatTensor)
+
             max_height = 100
 
         elif self.scale == "continuous":
+            max_max_height = 100
             mode, certainty = self.time_step("max_height", prev_sample_value)
             prev_sample_value = pyro.sample("max_height",
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
-                                            Variable(torch.Tensor([0])),
-                                            mode,
+                                            Variable(torch.Tensor([max_max_height])),
+                                            mode*max_max_height,
                                             certainty)
+            max_height = prev_sample_value
 
             max_height = 100
         else:
@@ -284,7 +287,7 @@ class Guide(nn.Module):
                                              prev_sample_value)
             print(mode.data.numpy()[0])
             prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
-                                            proposal_dists.uniform_proposal,
+                                            proposal_dists.uniform_proposal, 
                                             Variable(torch.Tensor([0])), 
                                             Variable(torch.Tensor([max_height])),
                                             mode*max_height, 
