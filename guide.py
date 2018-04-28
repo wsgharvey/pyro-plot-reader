@@ -343,14 +343,15 @@ class Guide(nn.Module):
                                                 proposal_dists.categorical_proposal,
                                                 ps=ps).type(torch.FloatTensor)
 
+        max_max_height = 100
         if self.scale == "discrete":
             ps = self.time_step("max_height", prev_sample_value)
             prev_sample_value = pyro.sample("max_height",
                                             proposal_dists.categorical_proposal,
                                             ps=ps).type(torch.FloatTensor)
-            max_height = prev_sample_value
+            max_height = 100
+
         elif self.scale == "continuous":
-            max_max_height = 100
             mode, certainty = self.time_step("max_height", prev_sample_value)
             prev_sample_value = pyro.sample("max_height",
                                             proposal_dists.uniform_proposal,
@@ -358,7 +359,9 @@ class Guide(nn.Module):
                                             Variable(torch.Tensor([max_max_height])),
                                             mode*max_max_height,
                                             certainty)
-            max_height = prev_sample_value
+            max_height = 100
+        else:
+            max_height = 10
 
         if self.random_colour:
             for colour in ("red", "green", "blue"):
@@ -418,8 +421,8 @@ class Guide(nn.Module):
             prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
-                                            max_height,
-                                            mode*max_height.item(),
+                                            Variable(torch.Tensor([max_height])),
+                                            mode*max_height,
                                             certainty)
 
     def get_history(self):
