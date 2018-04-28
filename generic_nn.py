@@ -144,11 +144,10 @@ class Administrator(nn.Module):
             t = torch.cat([t, low_res_emb], 1)
         return t
 
-        @staticmethod
-        def remove_low_res_emb(t):
-            low_res_emb_size = self.HYPERPARAMS["low_res_emb_size"]
-            return t[:-low_res_emb_size]
-
+    def remove_low_res_emb(self, t):
+        low_res_emb_size = self.HYPERPARAMS["low_res_emb_size"]
+        t = t.narrow(1, 0, t.size()[1]-low_res_emb_size)
+        return t
 
 # TODO: move SampleEmbedder and QueryLayer
 class SampleEmbedder(nn.Module):
