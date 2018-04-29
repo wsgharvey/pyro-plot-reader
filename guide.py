@@ -329,14 +329,14 @@ class Guide(nn.Module):
 
         max_max_height = 100
         if self.scale == "discrete":
-            ps = self.time_step("max_height", prev_sample_value)
+            ps = self.program_step("max_height", prev_sample_value)
             prev_sample_value = pyro.sample("max_height",
                                             proposal_dists.categorical_proposal,
                                             ps=ps).type(torch.FloatTensor)
             max_height = 100
 
         elif self.scale == "continuous":
-            mode, certainty = self.time_step("max_height", prev_sample_value)
+            mode, certainty = self.program_step("max_height", prev_sample_value)
             prev_sample_value = pyro.sample("max_height",
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
