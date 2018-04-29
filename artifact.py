@@ -105,12 +105,9 @@ class PersistentArtifact(object):
         self.save()
 
     def infer(self,
-              dataset_name,
-<<<<<<< HEAD
-=======
+              dataset_name, 
               attention_plots=True,
               start_no=0,
->>>>>>> 3e6e22b... fixed so it no longer runs out of memory during inference
               max_plots=np.inf,
               cuda=False):
         test_folder = "{}/{}/test".format(DATASET_FOLDER, dataset_name)
