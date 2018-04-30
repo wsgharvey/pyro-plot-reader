@@ -163,7 +163,7 @@ class Guide(nn.Module):
         transform_grid, transform = transform_layer(t=t, prev_hidden=self.hidden)
         attention_output = F.grid_sample(self.image, transform_grid)
         if self.attention_tracker is not None:
-            graphic = attention_output.view(3, 210, 210, 1).data.numpy()
+            graphic = attention_output.view(3, 210, 210, 1).data.cpu().numpy()
             graphic = graphic * 255/np.amax(graphic)
             graphic = np.concatenate((graphic[0], graphic[1], graphic[2]), axis=2)
             self.attention_tracker.add_graphic(graphic)
