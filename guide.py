@@ -164,7 +164,8 @@ class Guide(nn.Module):
         attention_output = F.grid_sample(self.image, transform_grid)
         if self.attention_tracker is not None:
             graphic = attention_output.view(3, 210, 210, 1).data.cpu().numpy()
-            graphic = graphic * 255/np.amax(graphic)
+            maximum = max(1, np.amax(graphic))
+            graphic = graphic * 255/maximum
             graphic = np.concatenate((graphic[0], graphic[1], graphic[2]), axis=2)
             self.attention_tracker.add_graphic(graphic)
         transform_embedding = self.transform_embedder(transform)
