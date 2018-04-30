@@ -274,7 +274,7 @@ class PersistentArtifact(object):
         for name, site in guide_trace.nodes.items():
             if name == "num_bars":
                 num_bars_log_pdf += site["log_pdf"]
-            if name[:9] == "bar_height":
+            if name[:10] == "bar_height":
                 bar_heights_log_pdf += site["log_pdf"]
             if site['type'] == 'observe':
                 observes_log_pdf += site["log_pdf"]
