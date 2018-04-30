@@ -160,7 +160,8 @@ class PersistentArtifact(object):
                 black = Image.new("RGB", (h, w))
                 black.paste(img, mask=att)
                 img = np.asarray(black).copy()
-                img *= int(255 / np.amax(img))
+                maximum = max(1, np.amax(img))
+                img *= int(255 / maximum)
                 img = Image.fromarray(img)
                 img.save("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step))
 
