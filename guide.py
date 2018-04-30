@@ -195,7 +195,7 @@ class Guide(nn.Module):
 
         return proposal_params
 
-    def forward(self, observed_image=None):
+    def forward(self, observed_image=None, print_params=False):
         image = observed_image.view(1, 3, 210, 210)
         if self.CUDA:
             image = image.cuda()
@@ -277,6 +277,8 @@ class Guide(nn.Module):
 
         ps = self.time_step("num_bars",
                             prev_sample_value)
+        if print_params:
+            print(ps.data.numpy())
         num_bars = pyro.sample("num_bars",
                                proposal_dists.categorical_proposal,
                                ps=ps)
@@ -292,6 +294,8 @@ class Guide(nn.Module):
                                             Variable(torch.Tensor([max_height])),
                                             mode*max_height,
                                             certainty)
+            if print_params:
+                print(mode.data.numpy()[0], '*', max_height, certainty.data.numpy()[0])
 
         if self.attention_tracker is not None:
             self.attention_tracker.save_graphics()

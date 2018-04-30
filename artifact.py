@@ -143,7 +143,7 @@ class PersistentArtifact(object):
             log_pdfs = []
             T = 10
             for t in range(T):
-                log_pdfs.append(self.log_pdf(num_bars, true_data, guide, observed_image=image).data.numpy())
+                log_pdfs.append(self.log_pdf(num_bars, true_data, guide, observed_image=image, print_params=True).data.numpy())
             log_pdf = logsumexp(log_pdfs) - np.log(T)
 
             dataset_log_pdf += log_pdf
