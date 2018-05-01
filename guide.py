@@ -40,6 +40,9 @@ class Guide(nn.Module):
                  random_line_colour=True,
                  random_line_width=True,
                  scale="fixed",
+                 multi_bar_charts=False,
+                 random_img_dim=False,
+                 random_layout=False,
                  attention_graphics_path=None,
                  collect_history=False):
 
@@ -63,12 +66,20 @@ class Guide(nn.Module):
         self.random_line_width = random_line_width
         self.wiggle_picture = wiggle_picture
         self.scale = scale
+        self.multi_bar_charts = multi_bar_charts
+        self.random_img_dim = random_img_dim
+        self.random_layout = random_layout
 
-        self.sample_statements = {"num_bars":   {"instances": 1,
-                                                 "dist": dist.categorical,
-                                                 "output_dim": 5},
-                                  "bar_height": {"instances": 5,
-                                                 "dist": dist.uniform}}
+        self.sample_statements = {"num_bars": {"instances": 1,
+                                               "dist": dist.categorical,
+                                               "output_dim": 5}}
+        if multi_bar_charts:
+            self.sample_statements.update({"bar_height_{}".format(bar_chart): {"instances": 5,
+                                                                               "dist": dist.uniform}
+                                           for bar_chart in range(4)})
+        else:
+            self.sample_statements.update({"bar_height": {"instances": 5,
+                                                          "dist": dist.uniform}})
         if wiggle_picture:
             shifts = {shift: {"instances": 1,
                               "dist": dist.categorical,
@@ -79,16 +90,21 @@ class Guide(nn.Module):
             self.sample_statements.update({"max_height": {"instances": 1,
                                                           "dist": dist.categorical,
                                                           "output_dim": 3}})
-        elif scale == "continuous":
+        elif scale == "continuous" or scale == "very_general":
             self.sample_statements.update({"max_height": {"instances": 1,
                                                           "dist": dist.uniform}})
         else:
             assert scale == "fixed", "scale argument given is invalid"
 
         if random_colour:
-            colour_samples = {col: {"instances": 1,
-                                    "dist": dist.uniform}
-                              for col in ("red", "green", "blue")}
+            if self.multi_bar_charts:
+                colour_samples = {col: {"instances": 4,
+                                        "dist": dist.uniform}
+                                  for col in ("red", "green", "blue")}
+            else:
+                colour_samples = {col: {"instances": 1,
+                                        "dist": dist.uniform}
+                                  for col in ("red", "green", "blue")}
             self.sample_statements.update(colour_samples)
         if random_bar_width:
             self.sample_statements.update({"bar_width": {"instances": 1,
@@ -101,6 +117,25 @@ class Guide(nn.Module):
         if random_line_width:
             self.sample_statements.update({"line_width": {"instances": 1,
                                                           "dist": dist.uniform}})
+        if multi_bar_charts:
+            self.sample_statements.update({"num_bar_charts": {"instances": 1,
+                                                              "dist": dist.categorical,
+                                                              "output_dim": 4+1},
+                                           "legend": {"instances": 1,
+                                                      "dist": dist.categorical,
+                                                      "output_dim": 2},
+                                           "density": {"instances": 1,
+                                                       "dist": dist.uniform}
+                                           })
+        if random_img_dim:
+            self.sample_statements.update({"img_width":     {"instances": 1,
+                                                             "dist": dist.uniform},
+                                           "img_height":    {"instances": 1,
+                                                             "dist": dist.uniform}})
+        if random_layout:
+            self.sample_statements.update({"no_spines": {"instances": 1,
+                                                         "dist": dist.categorical,
+                                                         "output_dim": 2}})
 
         self.administrator = Administrator(self.sample_statements,
                                            self.HYPERPARAMS)
@@ -196,7 +231,7 @@ class Guide(nn.Module):
 
         return proposal_params
 
-    def forward(self, observed_image=None):
+    def forward(self, observed_image=None, print_params=False):
         image = observed_image.view(1, 3, 210, 210)
         if self.CUDA:
             image = image.cuda()
@@ -215,8 +250,8 @@ class Guide(nn.Module):
                                                 proposal_dists.categorical_proposal,
                                                 ps=ps).type(torch.FloatTensor)
 
-        max_max_height = 100
         if self.scale == "discrete":
+            max_max_height = 100
             ps = self.time_step("max_height", prev_sample_value)
             prev_sample_value = pyro.sample("max_height",
                                             proposal_dists.categorical_proposal,
@@ -236,20 +271,51 @@ class Guide(nn.Module):
             max_height = prev_sample_value
 
             max_height = 100
+        elif self.scale == "very_general":
+            mode, certainty = self.time_step("max_height", prev_sample_value)
+            prev_sample_value = pyro.sample("max_log_height",
+                                            proposal_dists.uniform_proposal,
+                                            Variable(torch.Tensor([-1])),
+                                            Variable(torch.Tensor([2.5])),
+                                            mode*3.5 - 1,
+                                            certainty)
+            max_height = 320
         else:
             max_height = 10
 
+        if self.multi_bar_charts:
+            ps = self.time_step("num_bar_charts", prev_sample_value)
+            num_bar_charts = pyro.sample("num_bar_charts",
+                                         proposal_dists.categorical_proposal,
+                                         ps=ps)
+            prev_sample_value = num_bar_charts.type(torch.FloatTensor)
+            num_bar_charts += 1     # to go from 1 to 4
+        else:
+            num_bar_charts = 1
 
         if self.random_colour:
-            for colour in ("red", "green", "blue"):
-                mode, certainty = self.time_step(colour,
-                                                 prev_sample_value)
-                prev_sample_value = pyro.sample(colour,
-                                                proposal_dists.uniform_proposal,
-                                                Variable(torch.Tensor([0])),
-                                                Variable(torch.Tensor([1])),
-                                                mode,
-                                                certainty)
+            if self.multi_bar_charts:
+                for bar_chart in range(num_bar_charts):
+                    for colour in ("red", "green", "blue"):
+                        mode, certainty = self.time_step(colour,
+                                                         prev_sample_value)
+                        prev_sample_value = pyro.sample("{}_{}".format(colour, bar_chart),
+                                                        proposal_dists.uniform_proposal,
+                                                        Variable(torch.Tensor([0])),
+                                                        Variable(torch.Tensor([1])),
+                                                        mode,
+                                                        certainty)
+            else:
+                for colour in ("red", "green", "blue"):
+                    mode, certainty = self.time_step(colour,
+                                                     prev_sample_value)
+                    prev_sample_value = pyro.sample(colour,
+                                                    proposal_dists.uniform_proposal,
+                                                    Variable(torch.Tensor([0])),
+                                                    Variable(torch.Tensor([1])),
+                                                    mode,
+                                                    certainty)
+
         if self.random_bar_width:
             mode, certainty = self.time_step("bar_width",
                                              prev_sample_value)
@@ -281,6 +347,41 @@ class Guide(nn.Module):
                                             mode*2.5,
                                             certainty)
 
+        if self.random_img_dim:
+            mode, certainty = self.time_step("img_width", prev_sample_value)
+            prev_sample_value = pyro.sample("img_width",
+                                            proposal_dists.uniform_proposal,
+                                            Variable(torch.Tensor([25])),
+                                            Variable(torch.Tensor([100])),
+                                            mode*75 + 25,
+                                            certainty)
+            mode, certainty = self.time_step("img_height", prev_sample_value)
+            prev_sample_value = pyro.sample("img_height",
+                                            proposal_dists.uniform_proposal,
+                                            Variable(torch.Tensor([200])),
+                                            Variable(torch.Tensor([500])),
+                                            mode*300 + 200,
+                                            certainty)
+
+        if num_bar_charts > 1:
+            mode, certainty = self.time_step("density", prev_sample_value)
+            prev_sample_value = pyro.sample("density",
+                                            proposal_dists.uniform_proposal,
+                                            Variable(torch.Tensor([0])),
+                                            Variable(torch.Tensor([1])),
+                                            mode,
+                                            certainty)
+            ps = self.time_step("legend", prev_sample_value)
+            prev_sample_value = pyro.sample("legend",
+                                            proposal_dists.categorical_proposal,
+                                            ps=ps).type(torch.FloatTensor)
+
+        if self.random_layout:
+            ps = self.time_step("no_spines", prev_sample_value)
+            prev_sample_value = pyro.sample("no_spines",
+                                            proposal_dists.categorical_proposal,
+                                            ps=ps).type(torch.FloatTensor)
+
         ps = self.time_step("num_bars",
                             prev_sample_value)
         num_bars = pyro.sample("num_bars",
@@ -288,16 +389,32 @@ class Guide(nn.Module):
                                ps=ps)
         prev_sample_value = num_bars.type(torch.FloatTensor)
 
-        for _ in range(num_bars):
-            mode, certainty = self.time_step("bar_height",
-                                             prev_sample_value)
-            print(mode.data.numpy()[0])
-            prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
-                                            proposal_dists.uniform_proposal, 
-                                            Variable(torch.Tensor([0])), 
-                                            Variable(torch.Tensor([max_height])),
-                                            mode*max_height, 
-                                            certainty)
+        if self.multi_bar_charts:
+            for bar_chart in range(num_bar_charts):
+                sample_name = "bar_height_{}".format(bar_chart)
+                for _ in range(num_bars):
+                    mode, certainty = self.time_step(sample_name,
+                                                     prev_sample_value)
+                    print(mode.data.numpy()[0])
+                    prev_sample_value = pyro.sample("{}_{}".format(sample_name, self.instances_dict[sample_name]),
+                                                    proposal_dists.uniform_proposal,
+                                                    Variable(torch.Tensor([0])),
+                                                    Variable(torch.Tensor([max_height])),
+                                                    mode*max_height,
+                                                    certainty)
+        else:
+            for _ in range(num_bars):
+                mode, certainty = self.time_step("bar_height",
+                                                 prev_sample_value)
+                print(mode.data.numpy()[0])
+                prev_sample_value = pyro.sample("{}_{}".format("bar_height", self.instances_dict["bar_height"]),
+                                                proposal_dists.uniform_proposal,
+                                                Variable(torch.Tensor([0])),
+                                                Variable(torch.Tensor([max_height])),
+                                                mode*max_height,
+                                                certainty)
+                if print_params:
+                    print(mode.data.numpy()[0], '*', max_height, certainty.data.numpy()[0])
 
         if self.attention_tracker is not None:
             self.attention_tracker.save_graphics()
