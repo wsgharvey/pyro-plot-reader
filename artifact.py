@@ -160,7 +160,8 @@ class PersistentArtifact(object):
                 black = Image.new("RGB", (h, w))
                 black.paste(img, mask=att)
                 img = np.asarray(black).copy()
-                img *= int(255 / np.amax(img))
+                maximum = max(1, np.amax(img))
+                img *= int(255 / maximum)
                 img = Image.fromarray(img)
                 img.save("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step))
 
@@ -274,7 +275,7 @@ class PersistentArtifact(object):
         for name, site in guide_trace.nodes.items():
             if name == "num_bars":
                 num_bars_log_pdf += site["log_pdf"]
-            if name[:9] == "bar_height":
+            if name[:10] == "bar_height":
                 bar_heights_log_pdf += site["log_pdf"]
             if site['type'] == 'observe':
                 observes_log_pdf += site["log_pdf"]
