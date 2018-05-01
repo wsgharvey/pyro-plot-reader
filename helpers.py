@@ -1,6 +1,8 @@
 import torch
 from torch.autograd import Variable
 
+from PIL import Image
+
 import numpy as np
 
 
@@ -14,6 +16,12 @@ def fig2tensor(fig):
     flat_array = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
     width, height = fig.canvas.get_width_height()
     img = flat_array.reshape((height, width, 3))
+
+    if img.shape != (200, 200, 3):
+        img = Image.fromarray(img, 'RGB')
+        img = img.resize((200, 200), Image.BILINEAR)
+        img = np.array(img)
+
     img = img.transpose((2, 0, 1))  # put layer in the first dimension
     img = torch.from_numpy(img).type(torch.FloatTensor)
 
