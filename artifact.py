@@ -145,7 +145,6 @@ class PersistentArtifact(object):
             log_pdf = logsumexp(log_pdfs) - np.log(T)
 
             dataset_log_pdf += log_pdf
-            img_no += 1
 
             datum_history = guide.get_history()[-T:]
             text += "inference on data point {}:\n".format(img_no)
@@ -178,6 +177,7 @@ class PersistentArtifact(object):
                             lower = guess
                     confidence_intervals.append(guess)
                 text += "bar_height_{}".format(bar_no) + ": " + str(confidence_intervals) + "\n"
+                img_no += 1
 
         inference_log = guide.get_history()
         with open("{}/confidence_intervals".format(self.directory), 'w') as f:
