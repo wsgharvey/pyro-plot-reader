@@ -177,6 +177,7 @@ class PersistentArtifact(object):
                             lower = guess
                     confidence_intervals.append(guess)
                 text += "bar_height_{}".format(bar_no) + ": " + str(confidence_intervals) + "\n"
+                img_no += 1
 
         inference_log = guide.get_history()
         with open("{}/confidence_intervals".format(self.directory), 'w') as f:
