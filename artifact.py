@@ -123,6 +123,10 @@ class PersistentArtifact(object):
 
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = cuda
+        if attention_plots:
+            guide_kwargs["attention_graphics_path"] = self.paths["attention_graphics"]
+        else:
+            guide_kwargs["attention_graphics_path"] = None
         guide_kwargs["collect_history"] = True
         guide = Guide(**guide_kwargs)
         guide.load_state_dict(torch.load(self.paths["weights"]))
