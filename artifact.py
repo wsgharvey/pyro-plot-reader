@@ -149,25 +149,6 @@ class PersistentArtifact(object):
             dataset_log_pdf += log_pdf
             img_no += 1
 
-        print("Improving attention graphics...")
-        img_no = 0
-        while os.path.isfile("{}/{}-0.png".format(self.paths["attention_graphics"], img_no)):
-            step = 0
-            while os.path.isfile("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step)):
-                img = Image.open("{}/graph_{}.png".format(test_folder, img_no))
-                att = Image.open("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step)).convert('L')
-                h, w, _ = np.asarray(img).shape
-                black = Image.new("RGB", (h, w))
-                black.paste(img, mask=att)
-                img = np.asarray(black).copy()
-                maximum = max(1, np.amax(img))
-                img *= int(255 / maximum)
-                img = Image.fromarray(img)
-                img.save("{}/{}-{}.png".format(self.paths["attention_graphics"], img_no, step))
-
-                step += 1
-            img_no += 1
-
         inference_log = guide.get_history()
 
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
