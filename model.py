@@ -81,11 +81,8 @@ class Model(object):
         if self.multi_bar_charts:
             num_bar_charts = pyro.sample("num_bar_charts",
                                          dist.categorical,
-                                         ps=Variable(torch.ones(4)))
+                                         ps=Variable(torch.Tensor([0, 1., 1., 1., 1.])))
             num_bar_charts = int(num_bar_charts)
-            num_bar_charts += 1             # so they go from 1 to 4
-        else:
-            num_bar_charts = 1
 
         if self.random_line_width:
             line_width = pyro.sample("line_width",
