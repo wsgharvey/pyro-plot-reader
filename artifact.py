@@ -148,9 +148,9 @@ class PersistentArtifact(object):
 
             datum_history = guide.get_history()[-T:]
             text += "inference on data point {}:\n".format(img_no)
-            bar_height_predictions = []
             bar_no = 0
             while True:
+                bar_height_predictions = []
                 try:
                     for trace in datum_history:
                         params = trace["bar_height_{}".format(bar_no)]
