@@ -177,11 +177,15 @@ class PersistentArtifact(object):
                             lower = guess
                     confidence_intervals.append(guess)
                 text += "bar_height_{}".format(bar_no) + ": " + str(confidence_intervals) + "\n"
-                img_no += 1
-
+            img_no += 1
 
         inference_log = guide.get_history()
-        with open("{}/confidence_intervals".format(self.directory), 'w') as f:
+
+        if start_no == 0:
+            mode = 'w'
+        else:
+            mode = 'a'
+        with open("{}/confidence_intervals".format(self.directory), mode) as f:
             f.write(text)
 
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
