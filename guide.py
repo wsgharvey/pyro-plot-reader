@@ -289,6 +289,8 @@ class Guide(nn.Module):
                                          proposal_dists.categorical_proposal,
                                          ps=ps)
             prev_sample_value = num_bar_charts.type(torch.FloatTensor)
+        else:
+            num_bar_charts = 1
 
         if self.random_colour:
             if self.multi_bar_charts:
