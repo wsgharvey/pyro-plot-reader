@@ -117,7 +117,7 @@ class PersistentArtifact(object):
         target = []
         with open("{}/targets.csv".format(test_folder), 'r') as f:
             ground_truths = f.read().splitlines()
-            ground_truths = [[float(number) for number in line.split(",")] for line in ground_truths]
+            ground_truths = [eval('[' + line + ']') for line in ground_truths]
 
         subprocess.check_call(["rm", "-f",
                                "{}/*".format(self.paths["attention_graphics"])])
@@ -256,12 +256,22 @@ class PersistentArtifact(object):
                                     value=Variable(torch.Tensor([num_bars])).type(torch.IntTensor),
                                     args=(), kwargs={})
         for i, bar_height in enumerate(bar_heights):
-            ground_truth_trace.add_node("bar_height_{}".format(i),
-                                        type="sample",
-                                        name="num_bars",
-                                        is_observed=False,
-                                        value=Variable(torch.Tensor([bar_height])),
-                                        args=(), kwargs={})
+            if type(bar_height) is float:
+                ground_truth_trace.add_node("bar_height_{}".format(i),
+                                            type="sample",
+                                            name="num_bars",
+                                            is_observed=False,
+                                            value=Variable(torch.Tensor([bar_height])),
+                                            args=(), kwargs={})
+            else:
+                for j, bar_height in enumerate(bar_height):
+                    ground_truth_trace.add_node("bar_height_{}_{}".format(i, j),
+                                                type="sample",
+                                                name="num_bars",
+                                                is_observed=False,
+                                                value=Variable(torch.Tensor([bar_height])),
+                                                args=(), kwargs={})
+
 
         # run guide against trace
         guide_trace = poutine.trace(
