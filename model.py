@@ -83,6 +83,8 @@ class Model(object):
                                          dist.categorical,
                                          ps=Variable(torch.Tensor([0, 1., 1., 1., 1.])))
             num_bar_charts = int(num_bar_charts)
+        else:
+            num_bar_charts = 1
 
         if self.random_line_width:
             line_width = pyro.sample("line_width",
