@@ -238,5 +238,10 @@ class Model(object):
                                       obs=flattened_obs_image,
                                       mu=flattened_image,
                                       sigma=noise_std)
-        return {"image": image,
-                "bar_heights": np.array(bar_heights)}
+
+        if self.multi_bar_charts:
+            return {"image": image,
+                    "bar_heights": list(map(str, bar_heights))}
+        else:
+            return {"image": image,
+                    "bar_heights": np.array(bar_heights)}
