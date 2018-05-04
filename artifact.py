@@ -143,12 +143,22 @@ class PersistentArtifact(object):
             image = image2variable(image)
 
             true_data = ground_truths[img_no]
-            num_bars = len(true_data)
+            if type(true_data[0]) is float:
+                # then there is no multi_bar_charts option
+                num_bar_charts = None
+                num_bars = len(true_data)
+            else:
+                # there is a multi_bar_charts option
+                num_bar_charts = len(true_data)
+                num_bars = len(true_data[0])
 
             log_pdfs = []
             T = 10
-            for t in range(T):
-                log_pdfs.append(self.log_pdf(num_bars, true_data, guide, observed_image=image).data.numpy())
+
+            log_pdfs.append(self.log_pdf(num_bar_charts, num_bars, true_data, guide, observed_image=image, print_params=True).data.numpy())
+            for t in range(1, T):
+                log_pdfs.append(self.log_pdf(num_bar_charts, num_bars, true_data, guide, observed_image=image, print_params=False).data.numpy())
+
             log_pdf = logsumexp(log_pdfs) - np.log(T)
 
             dataset_log_pdf += log_pdf
@@ -246,11 +256,18 @@ class PersistentArtifact(object):
                                    new.paths[path_name]])
         new.save()
 
-    def log_pdf(self, num_bars, bar_heights, guide, *args, **kwargs):
+    def log_pdf(self, num_bar_charts, num_bars, bar_heights, guide, *args, **kwargs):
         """ assesses log prob of the guide on a set of samples
         """
         # make model trace
         ground_truth_trace = Trace()
+        if num_bar_charts is not None:
+            ground_truth_trace.add_node("num_bar_charts",
+                                        type="sample",
+                                        name="num_bar_charts",
+                                        is_observed=False,
+                                        value=Variable(torch.Tensor([num_bar_charts])).type(torch.IntTensor),
+                                        args=(), kwargs={})
         ground_truth_trace.add_node("num_bars",
                                     type="sample",
                                     name="num_bars",
@@ -273,7 +290,6 @@ class PersistentArtifact(object):
                                                 is_observed=False,
                                                 value=Variable(torch.Tensor([bar_height])),
                                                 args=(), kwargs={})
-
 
         # run guide against trace
         guide_trace = poutine.trace(
