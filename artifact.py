@@ -105,7 +105,7 @@ class PersistentArtifact(object):
         self.save()
 
     def infer(self,
-              dataset_name, 
+              dataset_name,
               attention_plots=True,
               start_no=0,
               max_plots=np.inf,
@@ -121,7 +121,7 @@ class PersistentArtifact(object):
         self.steps_at_last_make_plots = self.training_steps
 
         guide_kwargs = self.guide_kwargs.copy()
-        guide_kwargs["cuda"] = cuda 
+        guide_kwargs["cuda"] = cuda
         guide_kwargs["collect_history"] = True
         guide = Guide(**guide_kwargs)
         guide.load_state_dict(torch.load(self.paths["weights"]))
@@ -143,8 +143,39 @@ class PersistentArtifact(object):
             log_pdf = logsumexp(log_pdfs) - np.log(T)
 
             dataset_log_pdf += log_pdf
+
+            datum_history = guide.get_history()[-T:]
+            # print("NUM BARS:", guide.get_history()[-T:][-1])
+            example = datum_history[0]
+            bar_height_sample_names = [name for name in example if name[:10] == 'bar_height']
+            text += "inference on data point {}:\n".format(img_no)
+
+            for sample_name in bar_height_sample_names:
+                bar_height_predictions = []
+                for trace in datum_history:
+                    params = trace[sample_name]
+                    mode, cert = params
+                    mode, cert = mode.item(), cert.item()
+                    norm_m = mode
+                    norm_c = cert + 2
+                    dist = beta(norm_m * (norm_c - 2),
+                                (1 - norm_m) * (norm_c - 2))
+                    bar_height_predictions.append(dist)
+                confidence_intervals = []
+                # find where sum of cdfs in predictions add up to 0.05*T and 0.095*T
+                for target in [0.025*T, 0.975*T]:
+                    lower, upper = 0., 1.
+                    for _ in range(16):
+                        guess = (lower+upper)/2
+                        cdf = sum(dist.cdf(guess) for dist in bar_height_predictions)
+                        if cdf > target:
+                            upper = guess
+                        else:
+                            lower = guess
+                    confidence_intervals.append(guess)
+                text += sample_name + ": " + str(confidence_intervals) + "\n"
             img_no += 1
-        
+
         inference_log = guide.get_history()
 
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
