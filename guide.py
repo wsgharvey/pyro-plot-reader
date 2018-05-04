@@ -196,6 +196,8 @@ class Guide(nn.Module):
                                  self.low_res_emb)
         transform_layer = self.administrator.get_transform_layer(current_sample_name, current_instance)
         transform_grid, transform = transform_layer(t=t, prev_hidden=self.hidden)
+        if self.HYPERPARAMS["print_params"]:
+            print("theta:", transform.data)
         attention_output = F.grid_sample(self.image, transform_grid)
         if self.attention_tracker is not None:
             graphic = attention_output.view(3, 210, 210, 1).data.cpu().numpy()
@@ -232,6 +234,7 @@ class Guide(nn.Module):
         return proposal_params
 
     def forward(self, observed_image=None, print_params=False):
+        self.HYPERPARAMS["print_params"] = print_params
         image = observed_image.view(1, 3, 210, 210)
         if self.CUDA:
             image = image.cuda()
