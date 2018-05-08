@@ -50,7 +50,7 @@ def set_size_pixels(fig, size):
 
 
 def image2variable(image):
-    image = np.array(image).astype(np.float32)
+    image = np.array(image.convert('RGB')).astype(np.float32)
     image = np.array([image[..., 0], image[..., 1], image[..., 2]])
     return Variable(torch.Tensor(image))
 

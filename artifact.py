@@ -131,6 +131,9 @@ class PersistentArtifact(object):
         img_no = start_no
         dataset_log_pdf = 0
         while img_no < start_no + max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
+            if start_no == 0:
+                open("{}/confidence_intervals".format(self.directory), "w")
+
             print("running inference no.", img_no)
             image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
             image = image2variable(image)
@@ -152,7 +155,10 @@ class PersistentArtifact(object):
                 log_pdfs.append(self.log_pdf(num_bar_charts, num_bars, true_data, guide, observed_image=image, print_params=False).data.numpy())
             log_pdf = logsumexp(log_pdfs) - np.log(T)
 
-            dataset_log_pdf += log_pdf
+            if log_pdf > -10000000 and log_pdf < 10000000:
+                dataset_log_pdf += log_pdf
+            else:
+                raise IndexError
 
             datum_history = guide.get_history()[-T:]
             # print("NUM BARS:", guide.get_history()[-T:][-1])
@@ -188,11 +194,7 @@ class PersistentArtifact(object):
 
         inference_log = guide.get_history()
 
-        if start_no == 0:
-            mode = 'w'
-        else:
-            mode = 'a'
-        with open("{}/confidence_intervals".format(self.directory), mode) as f:
+        with open("{}/confidence_intervals".format(self.directory), "a") as f:
             f.write(text)
 
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
