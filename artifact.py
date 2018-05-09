@@ -200,6 +200,44 @@ class PersistentArtifact(object):
         pickle.dump(inference_log, open(self.paths["infer_log"], 'wb'))
         return dataset_log_pdf
 
+    def model_log_prob(self,
+                       dataset_name,
+                       attention_plots=True,
+                       start_no=0,
+                       max_plots=np.inf,
+                       cuda=False):
+        test_folder = "{}/{}/test".format(DATASET_FOLDER, dataset_name)
+        target = []
+        with open("{}/targets.csv".format(test_folder), 'r') as f:
+            ground_truths = f.read().splitlines()
+            ground_truths = [eval('[' + line + ']') for line in ground_truths]
+
+        model_kwargs = self.model_kwargs.copy()
+        model = Model(**model_kwargs)
+
+        text = ""
+        img_no = start_no
+        dataset_log_pdf = 0
+        while img_no < start_no + max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
+            image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
+            image = image2variable(image)
+
+            true_data = ground_truths[img_no]
+            if type(true_data[0]) is float:
+                # then there is no multi_bar_charts option
+                num_bar_charts = None
+                num_bars = len(true_data)
+            else:
+                # there is a multi_bar_charts option
+                num_bar_charts = len(true_data)
+                num_bars = len(true_data[0])
+            log_pdf = self.log_pdf(num_bar_charts, num_bars, true_data, model, observed_image=image).data.numpy()
+            print(log_pdf)
+
+            img_no += 1
+
+        return dataset_log_pdf
+
     def make_posterior_videos(self,
                               dataset_name,
                               max_plots=np.inf,
