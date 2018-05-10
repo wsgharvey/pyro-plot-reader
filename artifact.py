@@ -95,10 +95,10 @@ class PersistentArtifact(object):
         csis.iterations = self.training_steps
 
         desired_steps = self.training_steps + N_STEPS
-        while csis.iterations < desired_steps: 
+        while csis.iterations < desired_steps:
             step_batch_size = min(steps_per_batch, desired_steps-csis.iterations)
-            csis.compile(num_steps=step_batch_size, cuda=CUDA) 
-            torch.save(guide.state_dict(), self.paths["weights"]) 
+            csis.compile(num_steps=step_batch_size, cuda=CUDA)
+            torch.save(guide.state_dict(), self.paths["weights"])
             self.training_steps += step_batch_size
             self.save()
 
@@ -130,13 +130,15 @@ class PersistentArtifact(object):
         else:
             guide_kwargs["attention_graphics_path"] = None
         guide_kwargs["collect_history"] = True
-        guide = Guide(**guide_kwargs)
-        guide.load_state_dict(torch.load(self.paths["weights"]))
 
         img_no = start_no
         dataset_log_pdf = 0
         while img_no < start_no + max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
             print("running inference no.", img_no)
+            guide_kwargs[trace_number] = img_no
+            guide = Guide(**guide_kwargs)
+            guide.load_state_dict(torch.load(self.paths["weights"]))
+
             image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
             image = image2variable(image)
 

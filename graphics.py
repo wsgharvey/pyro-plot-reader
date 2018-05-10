@@ -2,8 +2,8 @@ from PIL import Image
 
 
 class AttentionTracker(object):
-    def __init__(self, folder_path):
-        self.n_passes = 0
+    def __init__(self, folder_path, trace_number):
+        self.n_passes = trace_number
         self.graphics = []
         self.folder_path = folder_path
 
