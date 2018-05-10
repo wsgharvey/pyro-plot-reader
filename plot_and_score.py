@@ -31,12 +31,14 @@ print("CUDA:", bool(args.cuda))
 artifact = PersistentArtifact.load(args.artifact)
 
 log_pdf = 0
-for start_no in range(0, 100, 10):
+for start_no in range(0, 100, 100):
+
     log_pdf += artifact.infer(args.dataset,
                               attention_plots=True,
                               start_no=start_no,
-                              cuda=bool(args.cuda),
-                              max_plots=10)
+                              cuda=bool(args.cuda), 
+                              max_plots=100)
+
 
 targets_file = open("{}/{}/test/targets.csv".format(DATASET_FOLDER, args.dataset), 'r')
 

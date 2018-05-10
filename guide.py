@@ -52,6 +52,7 @@ class Guide(nn.Module):
                  random_img_dim=False,
                  random_layout=False,
                  attention_graphics_path=None,
+                 trace_number=0,
                  collect_history=False):
 
         super(Guide, self).__init__()
@@ -175,7 +176,7 @@ class Guide(nn.Module):
                             dropout=lstm_dropout)
 
         if attention_graphics_path is not None:
-            self.attention_tracker = AttentionTracker(attention_graphics_path)
+            self.attention_tracker = AttentionTracker(attention_graphics_path, trace_number)
         else:
             self.attention_tracker = None
 

@@ -127,13 +127,15 @@ class PersistentArtifact(object):
         else:
             guide_kwargs["attention_graphics_path"] = None
         guide_kwargs["collect_history"] = True
-        guide = Guide(**guide_kwargs)
-        guide.load_state_dict(torch.load(self.paths["weights"]))
 
         img_no = start_no
         dataset_log_pdf = 0
         while img_no < start_no + max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
             print("running inference no.", img_no)
+            guide_kwargs[trace_number] = img_no
+            guide = Guide(**guide_kwargs)
+            guide.load_state_dict(torch.load(self.paths["weights"]))
+
             image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
             image = image2variable(image)
 
