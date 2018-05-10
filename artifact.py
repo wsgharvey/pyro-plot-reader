@@ -135,7 +135,7 @@ class PersistentArtifact(object):
         dataset_log_pdf = 0
         while img_no < start_no + max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
             print("running inference no.", img_no)
-            guide_kwargs[trace_number] = img_no
+            guide_kwargs["trace_number"] = img_no
             guide = Guide(**guide_kwargs)
             guide.load_state_dict(torch.load(self.paths["weights"]))
 
