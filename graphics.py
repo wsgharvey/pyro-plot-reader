@@ -25,5 +25,6 @@ class AttentionTracker(object):
             graphic.save("{}/{}-{}.png".format(self.folder_path,
                                                self.n_passes,
                                                i))
+        print("saving at {}-0.png etc.".format(self.n_passes))        
         self.n_passes += 1
         self.graphics = []
