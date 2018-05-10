@@ -1,6 +1,7 @@
 import pyro
 import pyro.infer
 import pyro.distributions as dist
+from abc_dist import abc_dist
 
 import torch
 from torch.autograd import Variable
@@ -232,14 +233,11 @@ class Model(object):
         background[:, y_shift:y_shift+height, x_shift:x_shift+width] = image
         image = background
 
-        flattened_image = image.view(-1)
-        noise_std = Variable(torch.ones(flattened_image.size()))
-        flattened_obs_image = observed_image.view(-1)
         observed_image = pyro.observe("observed_image",
-                                      dist.normal,
-                                      obs=flattened_obs_image,
-                                      mu=flattened_image,
-                                      sigma=noise_std)
+                                      abc_dist,
+                                      rendered_image=image,
+                                      var=1,
+                                      obs=observed_image)
 
         if self.multi_bar_charts:
             return {"image": image,
