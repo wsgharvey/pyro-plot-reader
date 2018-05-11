@@ -29,8 +29,10 @@ print("CUDA:", bool(args.cuda))
 
 artifact = PersistentArtifact.load(args.artifact)
 
+
 artifact.posterior_samples(args.dataset,
                            max_plots=1,
                            start_no=args.graph_no,
                            n_traces=args.N,
                            cuda=bool(args.cuda))
+
