@@ -23,7 +23,7 @@ parser.add_argument("dataset", help="Name of dataset to use", type=str)
 parser.add_argument("cuda", help="Whether to use GPU", type=int)
 parser.add_argument("-N", help="Maximum number of plots to run inference on", type=int, default=100)
 parser.add_argument("-L", help="Path to file to save the loss to", type=str)
-
+parser.add_argument("-T", help="Number of traces to take when running importance sampling on each sample", type=int)
 args = parser.parse_args()
 
 print("CUDA:", bool(args.cuda))
@@ -38,7 +38,8 @@ for start_no in range(0, args.N, 1):
                                   attention_plots=True,
                                   start_no=start_no,
                                   cuda=bool(args.cuda),
-                                  max_plots=1)
+                                  max_plots=1,
+                                  num_traces=args.T)
     except:
         pass
         failed = failed+1
