@@ -156,6 +156,8 @@ class PersistentArtifact(object):
             log_pdfs = []
             log_pdfs.append(self.log_pdf(num_bar_charts, num_bars, true_data, guide, observed_image=image, print_params=True).data.numpy())
             for t in range(1, num_traces):
+                guide = Guide(**guide_kwargs)
+                guide.load_state_dict(torch.load(self.paths["weights"]))
                 log_pdfs.append(self.log_pdf(num_bar_charts, num_bars, true_data, guide, observed_image=image, print_params=False).data.numpy())
             log_pdf = logsumexp(log_pdfs) - np.log(num_traces)
 
