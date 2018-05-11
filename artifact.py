@@ -158,7 +158,7 @@ class PersistentArtifact(object):
 
             dataset_log_pdf += log_pdf
 
-            datum_history = guide.get_history()[-T:]
+            datum_history = guide.get_history()[-num_traces:]
             # print("NUM BARS:", guide.get_history()[-T:][-1])
             example = datum_history[0]
             bar_height_sample_names = [name for name in example if name[:10] == 'bar_height']
@@ -177,7 +177,7 @@ class PersistentArtifact(object):
                     bar_height_predictions.append(dist)
                 confidence_intervals = []
                 # find where sum of cdfs in predictions add up to 0.05*T and 0.095*T
-                for target in [0.025*T, 0.975*T]:
+                for target in [0.025*num_traces, 0.975*num_traces]:
                     lower, upper = 0., 1.
                     for _ in range(16):
                         guess = (lower+upper)/2
