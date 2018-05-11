@@ -236,7 +236,7 @@ class Model(object):
         observed_image = pyro.observe("observed_image",
                                       abc_dist,
                                       rendered_image=image,
-                                      var=1,
+                                      var=1e10,
                                       obs=observed_image)
 
         if self.multi_bar_charts:
