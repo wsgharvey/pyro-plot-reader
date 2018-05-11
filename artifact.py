@@ -156,6 +156,7 @@ class PersistentArtifact(object):
             log_pdfs = []
             log_pdfs.append(self.log_pdf(num_bar_charts, num_bars, true_data, guide, observed_image=image, print_params=True).data.numpy())
             for t in range(1, num_traces):
+                print(t)
                 guide = Guide(**guide_kwargs)
                 guide.load_state_dict(torch.load(self.paths["weights"]))
                 log_pdfs.append(self.log_pdf(num_bar_charts, num_bars, true_data, guide, observed_image=image, print_params=False).data.numpy())
@@ -276,48 +277,51 @@ class PersistentArtifact(object):
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = cuda
 
+        with torch.no_grad():
+            img_no = start_no
+            while img_no < max_plots+start_no and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
 
-        img_no = start_no
-        while img_no < max_plots and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
+                log_weights = []
+                images = []
+                for trace_no in range(n_traces):
+                    print(trace_no) 
+                    guide = Guide(**guide_kwargs)
+                    guide.load_state_dict(torch.load(self.paths["weights"]))
 
-            log_weights = []
-            images = []
-            for trace_no in range(n_traces):
-                guide = Guide(**guide_kwargs)
-                guide.load_state_dict(torch.load(self.paths["weights"]))
+                    csis = CSIS(model=Model(**self.model_kwargs),
+                                guide=guide,
+                                num_samples=1)
+                    csis.set_model_args()
+                    marginal = Marginal(csis)
 
-                csis = CSIS(model=Model(**self.model_kwargs),
-                            guide=guide,
-                            num_samples=1)
-                csis.set_model_args()
-                marginal = Marginal(csis)
+                    print("running inference no.", img_no)
+                    image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
+                    image = Variable(image2variable(image).data, volatile=True)
+                    weighted_traces = marginal.trace_dist._traces(observed_image=image)
+                    trace, log_weight = next(weighted_traces)
+                    image = trace.nodes["_RETURN"]["value"]["image"]
+                    image = image.view(3, 210, 210)
+                    image = image.data.numpy()
+                    imgArray = np.zeros((210, 210, 3), 'uint8')
+                    imgArray[..., 0] = image[0]
+                    imgArray[..., 1] = image[1]
+                    imgArray[..., 2] = image[2]
+                    # image = Image.fromarray(imgArray)
+                    images.append(imgArray)
+                    log_weights.append(log_weight)
+                    #guide.detach_hidden_states()
 
-                print("running inference no.", img_no)
-                image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
-                image = image2variable(image)
-                weighted_traces = marginal.trace_dist._traces(observed_image=image)
-                trace, log_weight = next(weighted_traces)
-                image = trace.nodes["_RETURN"]["value"]["image"]
-                image = image.view(3, 210, 210)
-                image = image.data.numpy()
-                imgArray = np.zeros((210, 210, 3), 'uint8')
-                imgArray[..., 0] = image[0]
-                imgArray[..., 1] = image[1]
-                imgArray[..., 2] = image[2]
-                # image = Image.fromarray(imgArray)
-                images.append(imgArray)
-                log_weights.append(log_weight)
-
-            log_weights = torch.Tensor(log_weights)
-            weights = torch.nn.Softmax(dim=0)(log_weights)
-            composite_image = np.zeros((210, 210, 3), 'float32')
-            for image, weight in zip(images, weights):
-                composite_image += image*weight
-            composite_image = composite_image.astype('uint8')
-            composite_image = Image.fromarray(composite_image)
-            composite_image.save("{}/posterior_{}.png".format(self.paths["posterior_videos"],
+                log_weights = torch.Tensor(log_weights)
+                weights = torch.nn.Softmax(dim=0)(log_weights)
+                print(weights)
+                composite_image = np.zeros((210, 210, 3), 'float32')
+                for image, weight in zip(images, weights):
+                    composite_image += image*weight
+                composite_image = composite_image.astype('uint8')
+                composite_image = Image.fromarray(composite_image)
+                composite_image.save("{}/posterior_{}.png".format(self.paths["posterior_videos"],
                                                               img_no))
-            img_no += 1
+                img_no += 1
 
     def save(self):
         path = "{}/artifact.p".format(self.directory)
