@@ -112,6 +112,7 @@ class PersistentArtifact(object):
               attention_plots=True,
               start_no=0,
               max_plots=np.inf,
+              num_traces=10,
               cuda=False):
         test_folder = "{}/{}/test".format(DATASET_FOLDER, dataset_name)
         target = []
@@ -152,14 +153,13 @@ class PersistentArtifact(object):
                 num_bar_charts = len(true_data)
                 num_bars = len(true_data[0])
 
-            log_pdfs = []
-            T = 10
+            log_pdfs = [] 
 
             log_pdfs.append(self.log_pdf(num_bar_charts, num_bars, true_data, guide, observed_image=image, print_params=True).data.numpy())
-            for t in range(1, T):
+            for t in range(1, num_traces):
                 log_pdfs.append(self.log_pdf(num_bar_charts, num_bars, true_data, guide, observed_image=image, print_params=False).data.numpy())
 
-            log_pdf = logsumexp(log_pdfs) - np.log(T)
+            log_pdf = logsumexp(log_pdfs) - np.log(num_traces)
 
             dataset_log_pdf += log_pdf
             img_no += 1
