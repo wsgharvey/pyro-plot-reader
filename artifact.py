@@ -12,6 +12,7 @@ from guide import Guide
 from file_paths import ARTIFACT_FOLDER, DATASET_FOLDER
 
 from helpers import image2variable
+from plot_samples import plot_samples
 
 from PIL import Image
 import numpy as np
@@ -311,19 +312,26 @@ class PersistentArtifact(object):
         subprocess.check_call(["rm", "-f",
                                "{}/*".format(self.paths["posterior_videos"])])
 
+        with open("{}/targets.csv".format(test_folder), 'r') as f:
+            ground_truths = f.read().splitlines()
+            if "multi_bar_charts" in self.guide_kwargs and self.guide_kwargs["multi_bar_charts"]:
+                ground_truths = [eval('[' + line + ']') for line in ground_truths]
+            else:
+                ground_truths = [eval('[[' + line + ']]') for line in ground_truths]
+
         guide_kwargs = self.guide_kwargs.copy()
         guide_kwargs["cuda"] = cuda
+        guide = Guide(**guide_kwargs)
+        guide.load_state_dict(torch.load(self.paths["weights"]))
 
         with torch.no_grad():
             img_no = start_no
             while img_no < max_plots+start_no and os.path.isfile("{}/graph_{}.png".format(test_folder, img_no)):
 
                 log_weights = []
-                images = []
+                bar_heights_list = []
                 for trace_no in range(n_traces):
-                    print(trace_no) 
-                    guide = Guide(**guide_kwargs)
-                    guide.load_state_dict(torch.load(self.paths["weights"]))
+                    print(trace_no)
 
                     csis = CSIS(model=Model(**self.model_kwargs),
                                 guide=guide,
@@ -333,31 +341,41 @@ class PersistentArtifact(object):
 
                     print("running inference no.", img_no)
                     image = Image.open("{}/graph_{}.png".format(test_folder, img_no))
-                    image = Variable(image2variable(image).data, volatile=True)
+                    image = Variable(image2variable(image).data)
                     weighted_traces = marginal.trace_dist._traces(observed_image=image)
                     trace, log_weight = next(weighted_traces)
-                    image = trace.nodes["_RETURN"]["value"]["image"]
-                    image = image.view(3, 210, 210)
-                    image = image.data.numpy()
-                    imgArray = np.zeros((210, 210, 3), 'uint8')
-                    imgArray[..., 0] = image[0]
-                    imgArray[..., 1] = image[1]
-                    imgArray[..., 2] = image[2]
-                    # image = Image.fromarray(imgArray)
-                    images.append(imgArray)
+                    num_bars = trace.nodes["num_bars"]["value"].item()
+                    if "multi_bar_charts" in self.guide_kwargs and self.guide_kwargs["multi_bar_charts"]:
+                        print("bar charts:", trace.nodes["num_bar_charts"]["value"].item())
+                        print("num bars:", trace.nodes["num_bars"]["value"].item())
+                        endings = ["_{}".format(i) for i in range(trace.nodes["num_bar_charts"]["value"].item())]
+                    else:
+                        endings = [""]
+                    bar_heights = [[trace.nodes["bar_height"+ending+"_{}".format(bar)]["value"].item() for bar in range(num_bars)] for ending in endings]
+                    bar_heights_list.append(bar_heights)
                     log_weights.append(log_weight)
-                    #guide.detach_hidden_states()
 
                 log_weights = torch.Tensor(log_weights)
+                print(log_weights)
                 weights = torch.nn.Softmax(dim=0)(log_weights)
                 print(weights)
-                composite_image = np.zeros((210, 210, 3), 'float32')
-                for image, weight in zip(images, weights):
-                    composite_image += image*weight
-                composite_image = composite_image.astype('uint8')
-                composite_image = Image.fromarray(composite_image)
-                composite_image.save("{}/posterior_{}.png".format(self.paths["posterior_videos"],
-                                                              img_no))
+                samples = [(w.item(), b) for w, b in zip(weights, bar_heights_list)]
+                vis_error_bars = plot_samples(samples, ground_truths[img_no], drawing="error_bars")
+                vis_scatter = plot_samples(samples, ground_truths[img_no], drawing="markers")
+                vis_both = plot_samples(samples, ground_truths[img_no], drawing="both")
+                # composite_image = np.zeros((210, 210, 3), 'float32')
+                # for image, weight in zip(images, weights):
+                #     composite_image += image*weight
+                # composite_image = composite_image.astype('uint8')
+                # composite_image = Image.fromarray(composite_image)
+                # composite_image.save("{}/posterior_{}.png".format(self.paths["posterior_videos"],
+                #                                                   img_no))
+                vis_error_bars.save("{}/error_bars_{}.png".format(self.paths["posterior_videos"],
+                                                                  img_no))
+                vis_scatter.save("{}/scatter_{}.png".format(self.paths["posterior_videos"],
+                                                            img_no))
+                vis_scatter.save("{}/both_{}.png".format(self.paths["posterior_videos"],
+                                                         img_no))
                 img_no += 1
 
     def save(self):
