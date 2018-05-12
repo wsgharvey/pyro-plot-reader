@@ -417,18 +417,6 @@ class Guide(nn.Module):
                                             mode*300 + 200,
                                             certainty)
 
-        if num_bar_charts > 1:
-            mode, certainty = self.time_step("density", prev_sample_value)
-            prev_sample_value = pyro.sample("density",
-                                            proposal_dists.uniform_proposal,
-                                            Variable(torch.Tensor([0])),
-                                            Variable(torch.Tensor([1])),
-                                            mode,
-                                            certainty)
-            ps = self.time_step("legend", prev_sample_value)
-            prev_sample_value = pyro.sample("legend",
-                                            proposal_dists.categorical_proposal,
-                                            ps=ps).type(torch.FloatTensor)
 
         if self.random_layout:
             ps = self.time_step("no_spines", prev_sample_value)
@@ -442,6 +430,19 @@ class Guide(nn.Module):
                                 proposal_dists.categorical_proposal,
                                 ps=ps)
         prev_sample_value = num_bars.type(torch.FloatTensor)
+
+        if num_bar_charts > 1 and num_bars > 0:
+            mode, certainty = self.time_step("density", prev_sample_value)
+            prev_sample_value = pyro.sample("density",
+                                            proposal_dists.uniform_proposal,
+                                            Variable(torch.Tensor([0])),
+                                            Variable(torch.Tensor([1])),
+                                            mode,
+                                            certainty)
+            ps = self.time_step("legend", prev_sample_value)
+            prev_sample_value = pyro.sample("legend",
+                                            proposal_dists.categorical_proposal,
+                                            ps=ps).type(torch.FloatTensor)
 
         if self.multi_bar_charts:
             for bar_chart in range(num_bar_charts):
