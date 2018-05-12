@@ -432,14 +432,14 @@ class Guide(nn.Module):
         prev_sample_value = num_bars.type(torch.FloatTensor)
 
         if num_bar_charts > 1 and num_bars > 0:
-            mode, certainty = self.time_step("density", prev_sample_value)
+            mode, certainty = self.program_step("density", prev_sample_value)
             prev_sample_value = pyro.sample("density",
                                             proposal_dists.uniform_proposal,
                                             Variable(torch.Tensor([0])),
                                             Variable(torch.Tensor([1])),
                                             mode,
                                             certainty)
-            ps = self.time_step("legend", prev_sample_value)
+            ps = self.program_step("legend", prev_sample_value)
             prev_sample_value = pyro.sample("legend",
                                             proposal_dists.categorical_proposal,
                                             ps=ps).type(torch.FloatTensor)
