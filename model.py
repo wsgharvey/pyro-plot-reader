@@ -111,7 +111,8 @@ class Model(object):
                                     Variable(torch.Tensor([1]))).data.numpy()[0]
         else:
             bar_width = 0.8
-        bar_width = bar_width / num_bar_charts
+        if num_bar_charts > 0:
+            bar_width = bar_width / num_bar_charts
 
         if self.random_colour:
             if self.multi_bar_charts:
@@ -150,7 +151,7 @@ class Model(object):
         else:
             img_width, img_height = width, height
 
-        if num_bar_charts > 1:
+        if num_bar_charts > 1 and num_bars > 0:
             density = pyro.sample("density",
                                   dist.uniform,
                                   Variable(torch.Tensor([0])),
@@ -193,7 +194,7 @@ class Model(object):
         fig, ax = plt.subplots()
         if self.multi_bar_charts:
             for bar_chart in range(num_bar_charts):
-                if num_bar_charts > 1:
+                if num_bar_charts > 1 and num_bars > 0:
                     loose = bar_chart/(num_bar_charts)-0.5*(num_bar_charts-1)/num_bar_charts
                     dense = bar_chart*bar_width - num_bar_charts*bar_width/2
                     x_bar_offset = density*dense + (1-density)*loose
