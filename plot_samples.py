@@ -126,7 +126,7 @@ def plot_samples(samples, ground_truth, drawing='error_bars'):
         fig.canvas.draw()
         image += np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='').reshape((200, 200, 3))
         plt.clf()
-    if image == 0:
+    if type(image) == int:
         raise Exception("maybe all traces had -inf log weights")
     image = np.clip(image, 0, 255).astype('uint8')
     return Image.fromarray(image)
